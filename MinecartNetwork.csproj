@@ -7,6 +7,7 @@
     <AssemblyName>MinecartNetwork</AssemblyName>
     <RootNamespace>MinecartNetwork</RootNamespace>
     <EnableModDeploy>true</EnableModDeploy>
+    <EnableHarmony>true</EnableHarmony>
     <ModFolderName>MinecartNetwork</ModFolderName>
   </PropertyGroup>
 
