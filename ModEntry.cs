@@ -1,8 +1,12 @@
+using HarmonyLib;
 using MinecartNetwork.Commands;
+using MinecartNetwork.Menus;
+using MinecartNetwork.Patches;
 using MinecartNetwork.Rendering;
 using MinecartNetwork.Services;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
+using StardewValley;
 
 namespace MinecartNetwork;
 
@@ -10,6 +14,7 @@ public sealed class ModEntry : Mod
 {
     private ModConfig Config = null!;
     private StationManager StationManager = null!;
+    private VanillaMinecartService VanillaMinecartService = null!;
     private TeleportService TeleportService = null!;
     private PlacementManager PlacementManager = null!;
     private InteractionManager InteractionManager = null!;
@@ -20,12 +25,14 @@ public sealed class ModEntry : Mod
     {
         this.Config = helper.ReadConfig<ModConfig>();
         this.StationManager = new StationManager(helper, this.Monitor);
+        this.VanillaMinecartService = new VanillaMinecartService(helper, this.Monitor);
         this.TeleportService = new TeleportService(this.Monitor, this.Config);
         this.PlacementManager = new PlacementManager(helper, this.Monitor, this.StationManager, this.Config);
         this.InteractionManager = new InteractionManager(
             helper,
             this.Monitor,
             this.StationManager,
+            this.VanillaMinecartService,
             this.TeleportService,
             this.PlacementManager
         );
@@ -37,6 +44,9 @@ public sealed class ModEntry : Mod
             this.PlacementManager,
             this.Config
         );
+
+        VanillaMinecartPatch.Configure(this.TryOpenVanillaMinecartMenu);
+        new Harmony(this.ModManifest.UniqueID).PatchAll();
 
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
@@ -56,6 +66,27 @@ public sealed class ModEntry : Mod
         );
 
         this.Monitor.Log("Minecart Network initialized.", LogLevel.Debug);
+    }
+
+    private bool TryOpenVanillaMinecartMenu(string networkId, string? excludeDestinationId)
+    {
+        if (!Context.IsWorldReady
+            || !networkId.Equals("Default", StringComparison.OrdinalIgnoreCase)
+            || !this.VanillaMinecartService.IsDefaultNetworkUnlocked())
+            return false;
+
+        string originName = this.VanillaMinecartService.GetDisplayName(excludeDestinationId);
+        Game1.playSound("shwip");
+        Game1.activeClickableMenu = new MinecartMenu(
+            this.Helper,
+            this.Monitor,
+            this.StationManager,
+            this.VanillaMinecartService,
+            this.TeleportService,
+            originName,
+            excludedVanillaDestinationId: excludeDestinationId
+        );
+        return true;
     }
 
     private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
