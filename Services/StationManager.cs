@@ -134,6 +134,9 @@ public sealed class StationManager
         if (station is null)
             return false;
 
+        if (!enabled && station.UseAutomaticCategory)
+            station.Category = this.regions.GetStationCategory(station);
+
         station.UseAutomaticCategory = enabled;
         this.Save();
         return true;
