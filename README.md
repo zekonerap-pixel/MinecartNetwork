@@ -2,7 +2,7 @@
 
 Early development version of a Stardew Valley SMAPI mod which lets players create named minecart stations and use them together with the game's minecart destinations in an expandable travel network.
 
-## Current milestone: 0.1.0-alpha.7
+## Current milestone: 0.1.0-alpha.8
 
 Implemented foundation:
 
@@ -17,9 +17,12 @@ Implemented foundation:
 - collapsible destination categories and scroll support;
 - hover feedback for categories, destinations, and management controls;
 - custom and vanilla minecart destinations share the same menu;
-- vanilla Default minecarts are routed into the unified menu through Harmony;
-- vanilla destinations are read from `Data/Minecarts` instead of being hardcoded;
-- vanilla unlock and destination conditions are respected through game-state queries;
+- vanilla and compatible modded minecart menus are routed into the unified UI through Harmony;
+- minecart destinations are read from `Data/Minecarts` instead of being hardcoded;
+- network unlock and destination conditions are respected through game-state queries;
+- the `Default` network includes Minecart Network custom stations;
+- compatible third-party networks are opened as their own isolated network instead of being merged into `Default`;
+- third-party networks with available priced destinations fall back to their original menu so ticket/payment mechanics aren't bypassed;
 - custom physical stations can be renamed, recategorized, moved, or deleted from an in-game editor;
 - moving a station reuses placement preview/validation and keeps the original position until the new position is confirmed;
 - deleting a station requires a second confirmation click;
@@ -30,7 +33,7 @@ Implemented foundation:
 - automatic regions currently include Town, Mines, Farm, Mountain, Forest, Beach, Desert, Ginger Island, and Other;
 - location names and location types are inspected heuristically so many modded maps can be classified without explicit compatibility patches;
 - unknown maps safely fall back to Other instead of guessing an unrelated region;
-- modded destinations injected into the vanilla `Default` `Data/Minecarts` network use the same region classifier;
+- modded destinations use the same region classifier;
 - unknown minecart destination IDs are converted into friendlier display text when no specific translation is available;
 - full controller navigation in the unified network menu;
 - D-pad/left stick moves through categories and destinations, A activates, and B closes;
@@ -38,6 +41,8 @@ Implemented foundation:
 - controller focus automatically keeps the selected row inside the visible scroll area;
 - the station editor is fully operable with D-pad/left stick, A, and B;
 - controller-selected rows/buttons use the same visual highlight language as mouse hover;
+- optional layered sprite pipeline for `assets/minecart.png`, `assets/tracks.png`, and `assets/wall_hole.png`;
+- each missing visual layer falls back independently to the existing procedural art, allowing sprites to be introduced without breaking stations or save data;
 - automatic GitHub Actions build validation using the SMAPI mod build environment;
 - English and Spanish interface text.
 
@@ -60,7 +65,7 @@ While placing or moving a physical minecart:
 - `H`: toggle wall hole;
 - right click / Escape / controller B: cancel.
 
-To use a placed minecart, stand within interaction range and either click anywhere over its visible two-tile surface or use the game's configured action button. The unified menu mixes custom stations with currently available vanilla Default-network destinations and groups them by region/category.
+To use a placed minecart, stand within interaction range and either click anywhere over its visible two-tile surface or use the game's configured action button. Custom stations join the game's `Default` minecart network and are grouped with available destinations by region/category.
 
 Controller controls in the unified network menu:
 
@@ -86,14 +91,27 @@ Automatic grouping currently recognizes common map signals for:
 
 This classifier also examines modded map identifiers and runtime location types. For example, identifiers containing recognizable terms such as `forest`, `desert`, `island`, or `mine` can be grouped without a dedicated compatibility patch. Manual categories always remain available when the automatic result isn't appropriate.
 
-Priced `Data/Minecarts` destinations are intentionally skipped by the unified menu for now so the mod doesn't bypass ticket/payment mechanics from other mods.
+### Third-party minecart networks
 
-The current cart artwork is deliberately procedural placeholder pixel art so placement scale and interaction can be tested before final sprites are added.
+Minecart Network now recognizes named networks in `Data/Minecarts`, not only the vanilla `Default` network. If another mod opens an unlocked network with no currently available paid destinations, Minecart Network replaces that menu with the same collapsible/controller-friendly UI while keeping the destinations isolated to that network.
+
+If a third-party network exposes an available destination with a price, Minecart Network deliberately does **not** replace its menu. This preserves the other mod's payment/ticket behavior instead of providing a free warp.
+
+### Visual asset pipeline
+
+The renderer supports three optional transparent PNG layers:
+
+- `assets/minecart.png`;
+- `assets/tracks.png`;
+- `assets/wall_hole.png`.
+
+The standard source canvas is **32 × 24 px**, rendered at 4× scale. All layers share the same alignment. Detailed alignment notes are in `assets/README.md`.
+
+No final PNG artwork is bundled yet. Until a layer exists, the current procedural placeholder is used for that layer, so the visual migration can happen incrementally without touching placement, interaction, save data, or network logic.
 
 ## Next milestone
 
-- preserve compatible custom minecart networks beyond the vanilla `Default` network;
-- improve compatibility rules for third-party minecart destinations and network metadata;
-- replace placeholder cart rendering with final pixel-art assets;
+- create and integrate the final pixel-art minecart, tracks, and wall-hole layers;
 - add travel animation, sounds, and effects;
-- later expand multiplayer synchronization and configuration support.
+- expand compatibility rules for unusual third-party network metadata/payment systems;
+- later expand multiplayer synchronization and GMCM/configuration support.
