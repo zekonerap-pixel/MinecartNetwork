@@ -17,10 +17,7 @@ internal static class VanillaMinecartPatch
     {
         try
         {
-            if (openUnifiedMenu is null)
-                return true;
-
-            if (!networkId.Equals("Default", StringComparison.OrdinalIgnoreCase))
+            if (openUnifiedMenu is null || string.IsNullOrWhiteSpace(networkId))
                 return true;
 
             bool handled = openUnifiedMenu(networkId, excludeDestinationId);
@@ -29,7 +26,7 @@ internal static class VanillaMinecartPatch
         catch (Exception ex)
         {
             monitor?.Log(
-                $"Failed intercepting the vanilla minecart menu; falling back to the original game menu. {ex}",
+                $"Failed intercepting minecart network '{networkId}'; falling back to the original game menu. {ex}",
                 LogLevel.Error
             );
             return true;
