@@ -10,7 +10,9 @@ namespace MinecartNetwork.Rendering;
 
 public sealed class MinecartRenderer
 {
-    private const int MinecartWorldScale = 3;
+    // World-space sizes are explicit and independent from source atlas resolution.
+    private const int MinecartWorldSize = 64;
+    private const int EntranceWorldSize = 80;
 
     private readonly IModHelper helper;
     private readonly StationManager stations;
@@ -191,7 +193,7 @@ public sealed class MinecartRenderer
                 batch,
                 minecart,
                 this.visualAssets.GetMinecartSourceRect(direction),
-                this.GetMinecartSpriteBounds(logicalCart, direction),
+                this.GetMinecartSpriteBounds(logicalCart),
                 tint
             );
         }
@@ -220,45 +222,26 @@ public sealed class MinecartRenderer
 
     private Rectangle GetEntranceSpriteBounds(Rectangle logicalBounds, int direction)
     {
-        int size = MinecartVisualAssets.EntranceFrameWidth * MinecartVisualAssets.PixelScale;
         bool vertical = StationGeometry.NormalizeDirection(direction) is 0 or 2;
 
         return new Rectangle(
-            logicalBounds.Center.X - size / 2,
-            vertical ? logicalBounds.Bottom - size : logicalBounds.Center.Y - size / 2,
-            size,
-            size
+            logicalBounds.Center.X - EntranceWorldSize / 2,
+            vertical
+                ? logicalBounds.Bottom - EntranceWorldSize
+                : logicalBounds.Center.Y - EntranceWorldSize / 2,
+            EntranceWorldSize,
+            EntranceWorldSize
         );
     }
 
-    private Rectangle GetMinecartSpriteBounds(Rectangle logicalBounds, int direction)
+    private Rectangle GetMinecartSpriteBounds(Rectangle logicalBounds)
     {
-        // 24 source pixels at exact 3x scale = 72 world pixels. The logical cart remains
-        // one 64x64 tile; the art is allowed a four-pixel overhang on each side.
-        int size = MinecartVisualAssets.MinecartFrameWidth * MinecartWorldScale;
-        int x = logicalBounds.Center.X - size / 2;
-        int y = logicalBounds.Center.Y - size / 2;
-
-        // Tiny directional offsets align the wheelbase with the rail centre without stretching.
-        switch (StationGeometry.NormalizeDirection(direction))
-        {
-            case 0:
-                y -= 2;
-                break;
-            case 1:
-                x -= 1;
-                y += 1;
-                break;
-            case 2:
-                y -= 1;
-                break;
-            case 3:
-                x += 1;
-                y += 1;
-                break;
-        }
-
-        return new Rectangle(x, y, size, size);
+        return new Rectangle(
+            logicalBounds.Center.X - MinecartWorldSize / 2,
+            logicalBounds.Center.Y - MinecartWorldSize / 2,
+            MinecartWorldSize,
+            MinecartWorldSize
+        );
     }
 
     private void DrawFallbackEntrance(SpriteBatch batch, Rectangle bounds, int direction, float alpha, bool invalid)
