@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using MinecartNetwork.Models;
 using MinecartNetwork.Services;
 using StardewModdingAPI;
@@ -14,6 +15,7 @@ public sealed class StationEditMenu : IClickableMenu
     private const int MenuHeight = 570;
     private const int ButtonHeight = 52;
     private const int ButtonGap = 10;
+    private const int ButtonCount = 5;
 
     private readonly IModHelper helper;
     private readonly StationManager stations;
@@ -22,6 +24,8 @@ public sealed class StationEditMenu : IClickableMenu
     private readonly MinecartStation station;
 
     private bool confirmDelete;
+    private int selectedButtonIndex;
+    private bool controllerNavigationActive;
 
     public StationEditMenu(
         IModHelper helper,
@@ -46,54 +50,48 @@ public sealed class StationEditMenu : IClickableMenu
     public override void receiveLeftClick(int x, int y, bool playSound = true)
     {
         base.receiveLeftClick(x, y, playSound);
+        this.controllerNavigationActive = false;
 
         if (this.upperRightCloseButton?.containsPoint(x, y) == true)
             return;
 
-        if (this.RenameButton.Contains(x, y))
+        for (int i = 0; i < ButtonCount; i++)
         {
-            this.confirmDelete = false;
-            this.OpenRenameMenu();
+            if (!this.GetButtonBounds(i).Contains(x, y))
+                continue;
+
+            this.selectedButtonIndex = i;
+            this.ActivateButton(i);
             return;
         }
+    }
 
-        if (this.CategoryButton.Contains(x, y))
-        {
-            this.confirmDelete = false;
-            this.OpenCategoryMenu();
-            return;
-        }
+    public override void receiveGamePadButton(Buttons button)
+    {
+        this.controllerNavigationActive = true;
 
-        if (this.AutoCategoryButton.Contains(x, y))
+        switch (button)
         {
-            this.confirmDelete = false;
-            bool enabled = !this.station.UseAutomaticCategory;
-            this.stations.SetAutomaticCategory(this.station.Id, enabled);
-            Game1.playSound("smallSelect");
-            return;
-        }
-
-        if (this.MoveButton.Contains(x, y))
-        {
-            this.confirmDelete = false;
-            Game1.exitActiveMenu();
-            this.placement.BeginMove(this.station);
-            return;
-        }
-
-        if (this.DeleteButton.Contains(x, y))
-        {
-            if (!this.confirmDelete)
-            {
-                this.confirmDelete = true;
-                Game1.playSound("smallSelect");
+            case Buttons.B:
+                Game1.exitActiveMenu();
                 return;
-            }
 
-            bool removed = this.stations.Remove(this.station.Id);
-            Game1.playSound(removed ? "trashcan" : "cancel");
-            Game1.exitActiveMenu();
+            case Buttons.DPadUp:
+            case Buttons.LeftThumbstickUp:
+                this.MoveSelection(-1);
+                return;
+
+            case Buttons.DPadDown:
+            case Buttons.LeftThumbstickDown:
+                this.MoveSelection(1);
+                return;
+
+            case Buttons.A:
+                this.ActivateButton(this.selectedButtonIndex);
+                return;
         }
+
+        base.receiveGamePadButton(button);
     }
 
     public override void draw(SpriteBatch b)
@@ -129,24 +127,44 @@ public sealed class StationEditMenu : IClickableMenu
             Color.LightGray
         );
 
-        this.DrawButton(b, this.RenameButton, this.helper.Translation.Get("edit.rename"), false);
-        this.DrawButton(b, this.CategoryButton, this.helper.Translation.Get("edit.category"), false);
+        this.DrawButton(
+            b,
+            this.RenameButton,
+            this.helper.Translation.Get("edit.rename"),
+            false,
+            this.IsSelected(0)
+        );
+        this.DrawButton(
+            b,
+            this.CategoryButton,
+            this.helper.Translation.Get("edit.category"),
+            false,
+            this.IsSelected(1)
+        );
         this.DrawButton(
             b,
             this.AutoCategoryButton,
             this.station.UseAutomaticCategory
                 ? this.helper.Translation.Get("edit.category-auto-enabled")
                 : this.helper.Translation.Get("edit.category-auto-enable"),
-            false
+            false,
+            this.IsSelected(2)
         );
-        this.DrawButton(b, this.MoveButton, this.helper.Translation.Get("edit.move"), false);
+        this.DrawButton(
+            b,
+            this.MoveButton,
+            this.helper.Translation.Get("edit.move"),
+            false,
+            this.IsSelected(3)
+        );
         this.DrawButton(
             b,
             this.DeleteButton,
             this.confirmDelete
                 ? this.helper.Translation.Get("edit.delete-confirm")
                 : this.helper.Translation.Get("edit.delete"),
-            true
+            true,
+            this.IsSelected(4)
         );
 
         this.upperRightCloseButton?.draw(b);
@@ -164,6 +182,60 @@ public sealed class StationEditMenu : IClickableMenu
         int x = this.xPositionOnScreen + 48;
         int y = this.yPositionOnScreen + 164 + index * (ButtonHeight + ButtonGap);
         return new Rectangle(x, y, this.width - 96, ButtonHeight);
+    }
+
+    private bool IsSelected(int index)
+    {
+        return this.controllerNavigationActive && this.selectedButtonIndex == index;
+    }
+
+    private void MoveSelection(int delta)
+    {
+        this.confirmDelete = false;
+        this.selectedButtonIndex = Math.Clamp(this.selectedButtonIndex + delta, 0, ButtonCount - 1);
+        Game1.playSound("shiny4");
+    }
+
+    private void ActivateButton(int index)
+    {
+        switch (index)
+        {
+            case 0:
+                this.confirmDelete = false;
+                this.OpenRenameMenu();
+                return;
+
+            case 1:
+                this.confirmDelete = false;
+                this.OpenCategoryMenu();
+                return;
+
+            case 2:
+                this.confirmDelete = false;
+                bool enabled = !this.station.UseAutomaticCategory;
+                this.stations.SetAutomaticCategory(this.station.Id, enabled);
+                Game1.playSound("smallSelect");
+                return;
+
+            case 3:
+                this.confirmDelete = false;
+                Game1.exitActiveMenu();
+                this.placement.BeginMove(this.station);
+                return;
+
+            case 4:
+                if (!this.confirmDelete)
+                {
+                    this.confirmDelete = true;
+                    Game1.playSound("smallSelect");
+                    return;
+                }
+
+                bool removed = this.stations.Remove(this.station.Id);
+                Game1.playSound(removed ? "trashcan" : "cancel");
+                Game1.exitActiveMenu();
+                return;
+        }
     }
 
     private void OpenRenameMenu()
@@ -210,16 +282,17 @@ public sealed class StationEditMenu : IClickableMenu
         );
     }
 
-    private void DrawButton(SpriteBatch b, Rectangle bounds, string text, bool destructive)
+    private void DrawButton(SpriteBatch b, Rectangle bounds, string text, bool destructive, bool selected)
     {
         bool hovered = bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
+        bool highlighted = hovered || selected;
         Color fill = destructive
-            ? (hovered ? new Color(115, 50, 45) : new Color(82, 43, 40))
-            : (hovered ? new Color(91, 72, 57) : new Color(59, 50, 45));
+            ? (highlighted ? new Color(115, 50, 45) : new Color(82, 43, 40))
+            : (highlighted ? new Color(91, 72, 57) : new Color(59, 50, 45));
         Color border = destructive ? new Color(151, 72, 65) : new Color(115, 86, 63);
 
         this.Fill(b, bounds, fill);
-        this.Outline(b, bounds, border, hovered ? 3 : 2);
+        this.Outline(b, bounds, border, highlighted ? 3 : 2);
 
         Vector2 size = Game1.smallFont.MeasureString(text);
         b.DrawString(
