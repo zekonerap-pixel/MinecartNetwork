@@ -2,31 +2,36 @@
 
 Early development version of a Stardew Valley SMAPI mod which lets players create named minecart stations and use them together with the game's minecart destinations in an expandable travel network.
 
-## Current milestone: 0.1.0-alpha.9
+## Current milestone: 0.1.0-alpha.10
 
 Implemented foundation:
 
 - per-save custom station model and persistence;
 - physical minecart placement with a separate arrival tile;
 - stations can face up, right, down, or left;
-- configurable 0–8 track sections between the tunnel opening and the minecart;
-- new stations start with two intermediate track sections;
+- the minecart now occupies exactly **one logical tile**;
+- each rail section occupies exactly **one logical tile**;
+- the mine/tunnel entrance occupies one logical tile but may visually overhang it;
+- configurable 0–8 track sections between the tunnel entrance and the minecart;
+- new stations default to the intended composition: mine entrance -> two rail sections -> one-tile minecart -> clear arrival tile;
+- rails are rendered beneath the minecart so the cart visually sits on the track;
+- new procedural mine entrance uses a dark opening, timber frame, short internal rails, and a work lamp while final sprites are being developed;
 - station rotation and track length are stored per station and preserved when moving it;
-- the cart footprint rotates with the station and remains fully interactive;
 - the arrival tile is always placed immediately beyond the minecart, opposite the tunnel;
 - only the arrival tile must be clear and walkable; the tunnel/track/cart construction corridor may cross structural map tiles and existing world geometry;
 - station-to-station overlap is still prevented;
-- live preview outlines the entire construction corridor and highlights the required free arrival tile separately;
+- live preview outlines the entire one-tile-wide construction corridor and highlights the required free arrival tile separately;
 - simple generated world clutter inside the construction corridor is cleared automatically when the station is confirmed;
 - reversible clutter currently includes spawned forage and litter/debris objects identified by the game;
 - cleared object ID, stack, quality, position, and spawned state are stored with the station;
 - moving or deleting a station restores those cleared objects before changing/removing the station;
 - restoration refuses to overwrite a newly occupied tile, preventing silent item loss;
 - complex/player-owned objects such as machines and chests are never destructively removed by the cleanup system;
-- optional tracks and wall-hole visuals;
+- optional tracks and mine-entrance visuals;
 - movement remains available while placement controls are isolated;
+- the minecart interaction hitbox is also exactly one logical tile;
 - action cursor appears while hovering an in-range custom minecart;
-- left click anywhere on the cart surface or use the configured action button to open the network;
+- left click over the cart or use the configured action button to open the network;
 - collapsible destination categories and scroll support;
 - hover feedback for categories, destinations, and management controls;
 - custom and vanilla minecart destinations share the same menu;
@@ -70,20 +75,24 @@ While placing or moving a physical station:
 - `Q` / controller LB: reduce the number of intermediate track sections;
 - `E` / controller RB: increase the number of intermediate track sections;
 - `T`: toggle tracks;
-- `H`: toggle wall/tunnel opening;
+- `H`: toggle the mine/tunnel entrance;
 - right click / Escape / controller B: cancel.
 
-Track length ranges from **0 to 8**. It represents the number of complete rail sections between the wall opening and the minecart.
+Track length ranges from **0 to 8**. It represents the number of complete one-tile rail sections between the mine entrance and the minecart.
+
+The intended composition is:
+
+`tunnel -> N rail tiles -> 1x1 minecart -> clear arrival tile`
 
 The blue preview outlines the station construction corridor. This area may overlap ordinary map structure and world geometry. The green tile immediately beyond the cart is the arrival/exit tile and is the only environmental tile which must remain genuinely clear and walkable.
 
 The cleanup pass deliberately avoids destructive handling of complex objects. It automatically removes and records only simple objects the game identifies as spawned forage or litter/debris. Those objects are restored when the station is moved or removed. If their original tile has since become occupied, restoration is blocked instead of overwriting the new object.
 
-Stations created before alpha.9 remain compatible: they load with the legacy down-facing geometry and zero intermediate track sections.
+Stations created in earlier alphas remain compatible. Their saved anchor is reinterpreted using the new one-tile-wide geometry; no station needs to be recreated just to gain the smaller footprint.
 
 ### Using the network
 
-To use a placed minecart, stand within interaction range and either click anywhere over its visible cart surface or use the game's configured action button. Custom stations join the game's `Default` minecart network and are grouped with available destinations by region/category.
+To use a placed minecart, stand within interaction range and either click over its one-tile cart surface or use the game's configured action button. Custom stations join the game's `Default` minecart network and are grouped with available destinations by region/category.
 
 Controller controls in the unified network menu:
 
@@ -103,14 +112,14 @@ If a third-party network exposes an available destination with a price, Minecart
 
 ### Visual asset pipeline
 
-Station geometry is now directional and variable-length, so the old fixed 32 × 24 px three-layer composite is no longer the final art contract. See `assets/README.md` for the current transition notes.
+The final art contract is now based on one-tile station pieces instead of the old two-tile cart. See `assets/README.md` for the current source-size targets.
 
-The current procedural art remains the fallback while the final directional cart, repeated track section, and tunnel opening sprites are designed against the alpha.9 geometry.
+The procedural fallback already follows the desired visual composition: compact mine entrance, repeated one-tile rails, and a compact one-tile cart sitting on those rails.
 
 ## Next milestone
 
-- validate the new four-direction placement geometry and reversible cleanup in-game;
-- define and integrate final directional pixel-art frames for cart, track section, and tunnel opening;
+- validate the alpha.10 one-tile station composition in-game;
+- define and integrate final directional pixel-art frames for cart, track section, and mine entrance;
 - add travel animation, sounds, and effects;
 - expand compatibility rules for unusual third-party network metadata/payment systems;
 - later expand multiplayer synchronization and GMCM/configuration support.
