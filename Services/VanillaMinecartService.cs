@@ -217,6 +217,16 @@ public sealed class VanillaMinecartService
         if (networkId.Equals(DefaultNetworkId, StringComparison.OrdinalIgnoreCase))
             return this.helper.Translation.Get("vanilla.minecart");
 
+        // Some mods expose a human-readable network label. Read it opportunistically
+        // without taking a hard dependency on a specific game-data model version.
+        object? network = this.GetNetwork(networkId);
+        string? rawDisplayName = network is null ? null : this.GetString(network, "DisplayName");
+        if (!string.IsNullOrWhiteSpace(rawDisplayName)
+            && !rawDisplayName.TrimStart().StartsWith("[", StringComparison.Ordinal))
+        {
+            return rawDisplayName.Trim();
+        }
+
         return this.regions.HumanizeIdentifier(networkId);
     }
 
@@ -286,18 +296,65 @@ public sealed class VanillaMinecartService
                 customStationId = null;
         }
 
+        string category = this.GetDestinationCategory(networkId, id, targetLocation);
+
+        // Content packs often include the region in the destination label itself
+        // (e.g. "Ginger Island - Quarry"). Once the menu groups by that region the
+        // prefix becomes visual noise, so trim it for native/mod destinations only.
+        // User-created station names are never modified.
+        if (customStationId is null)
+            displayName = StripRedundantPrefix(displayName, category);
+
         return new VanillaMinecartDestination
         {
             NetworkId = networkId,
             Id = id,
             Name = displayName,
-            Category = this.regions.GetCategoryForDestination(id, targetLocation),
+            Category = category,
             TargetLocation = targetLocation,
             TargetTileX = tileX,
             TargetTileY = tileY,
             TargetDirection = direction,
             CustomStationId = customStationId
         };
+    }
+
+    private string GetDestinationCategory(string networkId, string destinationId, string targetLocation)
+    {
+        if (networkId.Equals(DefaultNetworkId, StringComparison.OrdinalIgnoreCase))
+            return this.regions.GetCategoryForDestination(destinationId, targetLocation);
+
+        string normalizedNetwork = NormalizeIdentifier(networkId);
+
+        // Ginger Island is a base-game region and already has localized names in our i18n.
+        // Everything else is intentionally dynamic: the network ID/display name supplied
+        // by the other mod becomes the region header without MinecartNetwork knowing that mod.
+        if (normalizedNetwork.Contains("gingerisland", StringComparison.Ordinal)
+            || normalizedNetwork.Equals("island", StringComparison.Ordinal))
+        {
+            return this.helper.Translation.Get("region.island");
+        }
+
+        return this.GetNetworkDisplayName(networkId);
+    }
+
+    private static string StripRedundantPrefix(string displayName, string category)
+    {
+        if (string.IsNullOrWhiteSpace(displayName) || string.IsNullOrWhiteSpace(category))
+            return displayName;
+
+        string[] separators = { " - ", " – ", " — ", ": " };
+        foreach (string separator in separators)
+        {
+            string prefix = category + separator;
+            if (!displayName.StartsWith(prefix, StringComparison.CurrentCultureIgnoreCase))
+                continue;
+
+            string trimmed = displayName[prefix.Length..].Trim();
+            return string.IsNullOrWhiteSpace(trimmed) ? displayName : trimmed;
+        }
+
+        return displayName;
     }
 
     private bool IsDestinationAvailable(object rawDestination)
@@ -422,6 +479,17 @@ public sealed class VanillaMinecartService
             "left" => 3,
             _ => 2
         };
+    }
+
+    private static string NormalizeIdentifier(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "";
+
+        return new string(value
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant)
+            .ToArray());
     }
 
     private string? GetString(object instance, string memberName)
