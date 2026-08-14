@@ -91,7 +91,7 @@ public sealed class ModEntry : Mod
         if (original is null)
         {
             this.Monitor.Log(
-                "Couldn't find GameLocation.ShowMineCartMenu; vanilla minecarts will keep their original menu.",
+                "Couldn't find GameLocation.ShowMineCartMenu; game and modded minecarts will keep their original menus.",
                 LogLevel.Warn
             );
             return;
@@ -105,12 +105,26 @@ public sealed class ModEntry : Mod
 
     private bool TryOpenVanillaMinecartMenu(string networkId, string? excludeDestinationId)
     {
-        if (!Context.IsWorldReady
-            || !networkId.Equals("Default", StringComparison.OrdinalIgnoreCase)
-            || !this.VanillaMinecartService.IsDefaultNetworkUnlocked())
+        if (!Context.IsWorldReady || !this.VanillaMinecartService.IsNetworkUnlocked(networkId))
             return false;
 
-        string originName = this.VanillaMinecartService.GetDisplayName(excludeDestinationId);
+        bool isDefaultNetwork = networkId.Equals(
+            VanillaMinecartService.DefaultNetworkId,
+            StringComparison.OrdinalIgnoreCase
+        );
+
+        if (!isDefaultNetwork && this.VanillaMinecartService.HasAvailablePricedDestinations(networkId))
+        {
+            this.Monitor.Log(
+                $"Minecart network '{networkId}' contains priced destinations; preserving its original menu to avoid bypassing payment mechanics.",
+                LogLevel.Trace
+            );
+            return false;
+        }
+
+        this.VanillaMinecartService.SelectNetwork(networkId);
+        string originName = this.VanillaMinecartService.GetDisplayName(networkId, excludeDestinationId);
+
         Game1.playSound("shwip");
         Game1.activeClickableMenu = new MinecartMenu(
             this.Helper,
@@ -129,6 +143,7 @@ public sealed class ModEntry : Mod
     private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
     {
         this.StationManager.Load();
+        this.VanillaMinecartService.SelectNetwork(VanillaMinecartService.DefaultNetworkId);
     }
 
     private void OnSaving(object? sender, SavingEventArgs e)
@@ -140,5 +155,6 @@ public sealed class ModEntry : Mod
     {
         this.PlacementManager.Cancel(silent: true);
         this.StationManager.Clear();
+        this.VanillaMinecartService.SelectNetwork(VanillaMinecartService.DefaultNetworkId);
     }
 }
