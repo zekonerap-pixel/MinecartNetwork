@@ -136,7 +136,7 @@ public sealed class DebugCommandHandler
             foreach (MinecartStation station in group)
             {
                 string physical = station.HasPhysicalMinecart
-                    ? $" | cart {station.VisualTileX},{station.VisualTileY}"
+                    ? $" | cart {station.VisualTileX},{station.VisualTileY} | dir {this.GetDirectionName(station.StationDirection)} | track length {station.TrackLength} | cleared {station.ClearedObjects.Count}"
                     : " | no physical cart";
                 string mode = station.UseAutomaticCategory ? " | auto category" : "";
 
@@ -204,7 +204,24 @@ public sealed class DebugCommandHandler
 
         MinecartStation station = matches[0];
         bool removed = this.stations.Remove(station.Id);
-        this.monitor.Log(removed ? $"Removed station '{station.Name}'." : $"Station '{target}' was not found.", removed ? LogLevel.Info : LogLevel.Warn);
+        this.monitor.Log(
+            removed
+                ? $"Removed station '{station.Name}'."
+                : $"Station '{station.Name}' couldn't be removed safely; check the previous warning for environment restoration details.",
+            removed ? LogLevel.Info : LogLevel.Warn
+        );
+    }
+
+    private string GetDirectionName(int direction)
+    {
+        return StationGeometry.NormalizeDirection(direction) switch
+        {
+            0 => "up",
+            1 => "right",
+            2 => "down",
+            3 => "left",
+            _ => "down"
+        };
     }
 
     private void PrintHelp()
@@ -212,9 +229,9 @@ public sealed class DebugCommandHandler
         this.monitor.Log("Minecart Network test commands:", LogLevel.Info);
         this.monitor.Log("  mn addhere <name> [category]   - create a non-physical station; category is automatic when omitted", LogLevel.Info);
         this.monitor.Log("  mn place <name> [category]     - place a physical minecart; category is automatic when omitted", LogLevel.Info);
-        this.monitor.Log("  mn list                        - list saved stations", LogLevel.Info);
+        this.monitor.Log("  mn list                        - list saved stations, geometry, and cleared environment", LogLevel.Info);
         this.monitor.Log("  mn goto <name-or-id>           - warp to a station", LogLevel.Info);
         this.monitor.Log("  mn goto <category> <name>      - warp using category + name", LogLevel.Info);
-        this.monitor.Log("  mn remove <name-or-id>         - delete a station", LogLevel.Info);
+        this.monitor.Log("  mn remove <name-or-id>         - delete a station and restore reversible cleared objects", LogLevel.Info);
     }
 }
