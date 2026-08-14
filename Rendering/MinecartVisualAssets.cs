@@ -6,19 +6,14 @@ namespace MinecartNetwork.Rendering;
 
 public sealed class MinecartVisualAssets
 {
-    public const int PixelScale = 4;
-
-    // Four directional frames in order: up, right, down, left.
-    // The entrance can overhang its logical tile footprint without changing station geometry.
+    // Source atlas geometry only. Source-pixel dimensions no longer control world size.
+    // Four directional frames are stored in order: up, right, down, left.
     public const int EntranceFrameWidth = 28;
     public const int EntranceFrameHeight = 28;
-
-    // Minecart uses larger square source cells so every direction can keep its own silhouette
-    // without being stretched into a shared 16x16 shape.
     public const int MinecartFrameWidth = 24;
     public const int MinecartFrameHeight = 24;
 
-    // tracks.png contains vertical then horizontal 16x16 frames.
+    // tracks.png contains vertical then horizontal frames.
     public const int TrackFrameSize = 16;
 
     private readonly IModHelper helper;
