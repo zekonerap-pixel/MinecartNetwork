@@ -1,6 +1,9 @@
 {
   "mod.name": "Red de vagonetas",
   "menu.title": "Red de vagonetas",
+  "menu.origin": "Origen: {{name}}",
+  "menu.empty": "No hay otros destinos disponibles.",
+  "menu.scroll": "Rueda del ratón para desplazarse",
   "category.other": "Otros",
   "station.default-name": "Vagoneta",
   "common.on": "SÍ",
