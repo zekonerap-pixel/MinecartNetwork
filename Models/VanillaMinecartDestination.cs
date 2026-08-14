@@ -10,4 +10,9 @@ public sealed class VanillaMinecartDestination
     public int TargetTileX { get; init; }
     public int TargetTileY { get; init; }
     public int TargetDirection { get; init; } = 2;
+
+    /// <summary>The MinecartNetwork station ID when this native destination is one of our mirrored stations.</summary>
+    public string? CustomStationId { get; init; }
+
+    public bool IsCustomStation => !string.IsNullOrWhiteSpace(this.CustomStationId);
 }
