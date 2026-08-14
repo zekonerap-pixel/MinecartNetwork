@@ -28,5 +28,8 @@ public sealed class MinecartStation
     public bool IsEnabled { get; set; } = true;
     public long CreatedByPlayerId { get; set; }
 
+    // Simple world clutter removed by this station and safe to reconstruct later.
+    public List<RemovedWorldObject> ClearedObjects { get; set; } = new();
+
     public bool HasPhysicalMinecart => this.VisualTileX.HasValue && this.VisualTileY.HasValue;
 }
