@@ -2,5 +2,12 @@
   "mod.name": "Red de vagonetas",
   "menu.title": "Red de vagonetas",
   "category.other": "Otros",
-  "station.default-name": "Vagoneta"
+  "station.default-name": "Vagoneta",
+  "common.on": "SÍ",
+  "common.off": "NO",
+  "placement.title": "Colocando: {{name}}  ·  {{category}}",
+  "placement.controls": "Clic izq.: colocar  |  T: vías  |  H: agujero  |  Clic der./Esc: cancelar",
+  "placement.options": "Vías: {{tracks}}  ·  Agujero: {{hole}}",
+  "placement.valid": "Posición válida",
+  "placement.invalid": "Posición no válida: {{reason}}"
 }
