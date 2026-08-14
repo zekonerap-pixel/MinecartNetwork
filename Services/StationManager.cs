@@ -10,13 +10,15 @@ public sealed class StationManager
 
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
+    private readonly LocationRegionService regions;
 
     public MinecartSaveData Data { get; private set; } = new();
 
-    public StationManager(IModHelper helper, IMonitor monitor)
+    public StationManager(IModHelper helper, IMonitor monitor, LocationRegionService regions)
     {
         this.helper = helper;
         this.monitor = monitor;
+        this.regions = regions;
     }
 
     public IReadOnlyList<MinecartStation> Stations => this.Data.Stations;
@@ -172,11 +174,14 @@ public sealed class StationManager
 
         return this.Data.Stations
             .Where(station =>
-                station.Id.Equals(value, StringComparison.OrdinalIgnoreCase)
-                || (value.Length >= 4 && station.Id.StartsWith(value, StringComparison.OrdinalIgnoreCase))
-                || station.Name.Equals(value, StringComparison.OrdinalIgnoreCase)
-                || $"{station.Category} {station.Name}".Equals(value, StringComparison.OrdinalIgnoreCase)
-                || $"{station.Name} {station.Category}".Equals(value, StringComparison.OrdinalIgnoreCase))
+            {
+                string category = this.regions.GetStationCategory(station);
+                return station.Id.Equals(value, StringComparison.OrdinalIgnoreCase)
+                    || (value.Length >= 4 && station.Id.StartsWith(value, StringComparison.OrdinalIgnoreCase))
+                    || station.Name.Equals(value, StringComparison.OrdinalIgnoreCase)
+                    || $"{category} {station.Name}".Equals(value, StringComparison.OrdinalIgnoreCase)
+                    || $"{station.Name} {category}".Equals(value, StringComparison.OrdinalIgnoreCase);
+            })
             .ToList();
     }
 
