@@ -105,6 +105,46 @@ public sealed class StationManager
         return station;
     }
 
+    public bool UpdateDetails(string id, string name, string category)
+    {
+        MinecartStation? station = this.Data.Stations.FirstOrDefault(candidate =>
+            candidate.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        if (station is null)
+            return false;
+
+        station.Name = string.IsNullOrWhiteSpace(name) ? station.Name : name.Trim();
+        station.Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim();
+        this.Save();
+        return true;
+    }
+
+    public bool MovePlaced(
+        string id,
+        string locationName,
+        int cartTileX,
+        int cartTileY,
+        int warpTileX,
+        int warpTileY,
+        bool hasTracks,
+        bool hasWallHole)
+    {
+        MinecartStation? station = this.Data.Stations.FirstOrDefault(candidate =>
+            candidate.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        if (station is null || !station.HasPhysicalMinecart)
+            return false;
+
+        station.LocationName = locationName;
+        station.VisualTileX = cartTileX;
+        station.VisualTileY = cartTileY;
+        station.TileX = warpTileX;
+        station.TileY = warpTileY;
+        station.FacingDirection = 0;
+        station.HasTracks = hasTracks;
+        station.HasWallHole = hasWallHole;
+        this.Save();
+        return true;
+    }
+
     public IReadOnlyList<MinecartStation> FindMatches(string query)
     {
         if (string.IsNullOrWhiteSpace(query))
