@@ -2,5 +2,12 @@
   "mod.name": "Minecart Network",
   "menu.title": "Minecart Network",
   "category.other": "Other",
-  "station.default-name": "Minecart"
+  "station.default-name": "Minecart",
+  "common.on": "ON",
+  "common.off": "OFF",
+  "placement.title": "Placing: {{name}}  ·  {{category}}",
+  "placement.controls": "Left click: place  |  T: tracks  |  H: wall hole  |  Right click/Esc: cancel",
+  "placement.options": "Tracks: {{tracks}}  ·  Wall hole: {{hole}}",
+  "placement.valid": "Valid position",
+  "placement.invalid": "Invalid position: {{reason}}"
 }
