@@ -11,12 +11,13 @@ namespace MinecartNetwork.Menus;
 public sealed class StationEditMenu : IClickableMenu
 {
     private const int MenuWidth = 620;
-    private const int MenuHeight = 500;
-    private const int ButtonHeight = 58;
-    private const int ButtonGap = 14;
+    private const int MenuHeight = 570;
+    private const int ButtonHeight = 52;
+    private const int ButtonGap = 10;
 
     private readonly IModHelper helper;
     private readonly StationManager stations;
+    private readonly LocationRegionService regions;
     private readonly PlacementManager placement;
     private readonly MinecartStation station;
 
@@ -25,6 +26,7 @@ public sealed class StationEditMenu : IClickableMenu
     public StationEditMenu(
         IModHelper helper,
         StationManager stations,
+        LocationRegionService regions,
         PlacementManager placement,
         MinecartStation station)
         : base(
@@ -36,6 +38,7 @@ public sealed class StationEditMenu : IClickableMenu
     {
         this.helper = helper;
         this.stations = stations;
+        this.regions = regions;
         this.placement = placement;
         this.station = station;
     }
@@ -58,6 +61,15 @@ public sealed class StationEditMenu : IClickableMenu
         {
             this.confirmDelete = false;
             this.OpenCategoryMenu();
+            return;
+        }
+
+        if (this.AutoCategoryButton.Contains(x, y))
+        {
+            this.confirmDelete = false;
+            bool enabled = !this.station.UseAutomaticCategory;
+            this.stations.SetAutomaticCategory(this.station.Id, enabled);
+            Game1.playSound("smallSelect");
             return;
         }
 
@@ -100,20 +112,33 @@ public sealed class StationEditMenu : IClickableMenu
             Color.Wheat
         );
 
+        string effectiveCategory = this.regions.GetStationCategory(this.station);
+        string categoryMode = this.station.UseAutomaticCategory
+            ? this.helper.Translation.Get("edit.mode-auto")
+            : this.helper.Translation.Get("edit.mode-manual");
         string details = this.helper.Translation.Get("edit.details", new
         {
             name = this.station.Name,
-            category = this.station.Category
+            category = effectiveCategory,
+            mode = categoryMode
         });
         b.DrawString(
             Game1.smallFont,
             details,
-            new Vector2(this.xPositionOnScreen + 36, this.yPositionOnScreen + 84),
+            new Vector2(this.xPositionOnScreen + 36, this.yPositionOnScreen + 82),
             Color.LightGray
         );
 
         this.DrawButton(b, this.RenameButton, this.helper.Translation.Get("edit.rename"), false);
         this.DrawButton(b, this.CategoryButton, this.helper.Translation.Get("edit.category"), false);
+        this.DrawButton(
+            b,
+            this.AutoCategoryButton,
+            this.station.UseAutomaticCategory
+                ? this.helper.Translation.Get("edit.category-auto-enabled")
+                : this.helper.Translation.Get("edit.category-auto-enable"),
+            false
+        );
         this.DrawButton(b, this.MoveButton, this.helper.Translation.Get("edit.move"), false);
         this.DrawButton(
             b,
@@ -130,13 +155,14 @@ public sealed class StationEditMenu : IClickableMenu
 
     private Rectangle RenameButton => this.GetButtonBounds(0);
     private Rectangle CategoryButton => this.GetButtonBounds(1);
-    private Rectangle MoveButton => this.GetButtonBounds(2);
-    private Rectangle DeleteButton => this.GetButtonBounds(3);
+    private Rectangle AutoCategoryButton => this.GetButtonBounds(2);
+    private Rectangle MoveButton => this.GetButtonBounds(3);
+    private Rectangle DeleteButton => this.GetButtonBounds(4);
 
     private Rectangle GetButtonBounds(int index)
     {
         int x = this.xPositionOnScreen + 48;
-        int y = this.yPositionOnScreen + 146 + index * (ButtonHeight + ButtonGap);
+        int y = this.yPositionOnScreen + 164 + index * (ButtonHeight + ButtonGap);
         return new Rectangle(x, y, this.width - 96, ButtonHeight);
     }
 
@@ -147,11 +173,12 @@ public sealed class StationEditMenu : IClickableMenu
             name =>
             {
                 if (!string.IsNullOrWhiteSpace(name))
-                    this.stations.UpdateDetails(this.station.Id, name.Trim(), this.station.Category);
+                    this.stations.UpdateName(this.station.Id, name.Trim());
 
                 Game1.activeClickableMenu = new StationEditMenu(
                     this.helper,
                     this.stations,
+                    this.regions,
                     this.placement,
                     this.station
                 );
@@ -168,17 +195,18 @@ public sealed class StationEditMenu : IClickableMenu
             category =>
             {
                 if (!string.IsNullOrWhiteSpace(category))
-                    this.stations.UpdateDetails(this.station.Id, this.station.Name, category.Trim());
+                    this.stations.SetManualCategory(this.station.Id, category.Trim());
 
                 Game1.activeClickableMenu = new StationEditMenu(
                     this.helper,
                     this.stations,
+                    this.regions,
                     this.placement,
                     this.station
                 );
             },
             this.helper.Translation.Get("edit.category-prompt"),
-            this.station.Category
+            this.regions.GetStationCategory(this.station)
         );
     }
 
