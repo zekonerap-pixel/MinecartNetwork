@@ -2,7 +2,7 @@
 
 Early development version of a Stardew Valley SMAPI mod which lets players create named minecart stations and use them together with the game's minecart destinations in an expandable travel network.
 
-## Current milestone: 0.1.0-alpha.6
+## Current milestone: 0.1.0-alpha.7
 
 Implemented foundation:
 
@@ -32,6 +32,12 @@ Implemented foundation:
 - unknown maps safely fall back to Other instead of guessing an unrelated region;
 - modded destinations injected into the vanilla `Default` `Data/Minecarts` network use the same region classifier;
 - unknown minecart destination IDs are converted into friendlier display text when no specific translation is available;
+- full controller navigation in the unified network menu;
+- D-pad/left stick moves through categories and destinations, A activates, and B closes;
+- left/right collapses or expands the selected category, while LB/RB move through long lists faster;
+- controller focus automatically keeps the selected row inside the visible scroll area;
+- the station editor is fully operable with D-pad/left stick, A, and B;
+- controller-selected rows/buttons use the same visual highlight language as mouse hover;
 - automatic GitHub Actions build validation using the SMAPI mod build environment;
 - English and Spanish interface text.
 
@@ -56,7 +62,15 @@ While placing or moving a physical minecart:
 
 To use a placed minecart, stand within interaction range and either click anywhere over its visible two-tile surface or use the game's configured action button. The unified menu mixes custom stations with currently available vanilla Default-network destinations and groups them by region/category.
 
-When the network menu is opened from a custom physical minecart, use **Edit station** at the bottom-left to rename it, set a manual category, enable/disable automatic categorization, move it, or delete it.
+Controller controls in the unified network menu:
+
+- D-pad / left stick up-down: move selection;
+- A: activate the selected category, destination, or Edit station button;
+- B: close the menu;
+- D-pad / left stick left-right on a category: collapse or expand it;
+- LB / RB: move several rows at once through long destination lists.
+
+When the network menu is opened from a custom physical minecart, use **Edit station** at the bottom-left to rename it, set a manual category, enable/disable automatic categorization, move it, or delete it. The station editor can also be used entirely with a controller.
 
 Automatic grouping currently recognizes common map signals for:
 
@@ -78,8 +92,8 @@ The current cart artwork is deliberately procedural placeholder pixel art so pla
 
 ## Next milestone
 
-- add controller/snappy-menu navigation to the unified and station editor menus;
 - preserve compatible custom minecart networks beyond the vanilla `Default` network;
+- improve compatibility rules for third-party minecart destinations and network metadata;
 - replace placeholder cart rendering with final pixel-art assets;
 - add travel animation, sounds, and effects;
 - later expand multiplayer synchronization and configuration support.
