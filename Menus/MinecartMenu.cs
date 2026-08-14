@@ -102,7 +102,7 @@ public sealed class MinecartMenu : IClickableMenu
 
     public override void draw(SpriteBatch b)
     {
-        b.Draw(Game1.staminaRect, Game1.uiViewport.Bounds, Color.Black * 0.45f);
+        b.Draw(Game1.staminaRect, Game1.uiViewport, Color.Black * 0.45f);
 
         Rectangle panel = new(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height);
         this.Fill(b, panel, new Color(37, 31, 28) * 0.98f);
