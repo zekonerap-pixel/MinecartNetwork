@@ -117,11 +117,10 @@ public sealed class InteractionManager
         if (!station.HasPhysicalMinecart)
             return Rectangle.Empty;
 
-        return new Rectangle(
-            station.VisualTileX!.Value * Game1.tileSize,
-            station.VisualTileY!.Value * Game1.tileSize,
-            Game1.tileSize * 2,
-            Game1.tileSize
+        return StationGeometry.GetCartPixelBounds(
+            station.VisualTileX!.Value,
+            station.VisualTileY!.Value,
+            station.StationDirection
         );
     }
 
