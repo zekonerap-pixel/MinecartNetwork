@@ -16,6 +16,7 @@ public sealed class ModEntry : Mod
     private LocationRegionService LocationRegionService = null!;
     private StationEnvironmentService StationEnvironmentService = null!;
     private StationManager StationManager = null!;
+    private MinecartDataSyncService MinecartDataSyncService = null!;
     private VanillaMinecartService VanillaMinecartService = null!;
     private TeleportService TeleportService = null!;
     private PlacementManager PlacementManager = null!;
@@ -34,6 +35,9 @@ public sealed class ModEntry : Mod
             this.LocationRegionService,
             this.StationEnvironmentService
         );
+        this.MinecartDataSyncService = new MinecartDataSyncService(helper, this.Monitor);
+        this.StationManager.Changed += this.OnStationsChanged;
+
         this.VanillaMinecartService = new VanillaMinecartService(helper, this.Monitor, this.LocationRegionService);
         this.TeleportService = new TeleportService(this.Monitor, this.Config);
         this.PlacementManager = new PlacementManager(
@@ -161,5 +165,10 @@ public sealed class ModEntry : Mod
     {
         this.PlacementManager.Cancel(silent: true);
         this.StationManager.Clear();
+    }
+
+    private void OnStationsChanged()
+    {
+        this.MinecartDataSyncService.Sync(this.StationManager.Stations);
     }
 }
