@@ -171,6 +171,7 @@ public sealed class InteractionManager
 
     private void OpenMenu(MinecartStation station)
     {
+        this.vanillaMinecarts.SelectNetwork(VanillaMinecartService.DefaultNetworkId);
         Game1.playSound("shwip");
         Game1.activeClickableMenu = new MinecartMenu(
             this.helper,
