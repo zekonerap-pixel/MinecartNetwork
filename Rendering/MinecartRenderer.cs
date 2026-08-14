@@ -128,7 +128,6 @@ public sealed class MinecartRenderer
         trackLength = Math.Clamp(trackLength, StationGeometry.MinTrackLength, StationGeometry.MaxTrackLength);
         Color spriteTint = (invalid ? new Color(255, 105, 105) : Color.White) * alpha;
 
-        // Tunnel is the rear-most/background element.
         if (hasWallHole)
         {
             int effectiveLength = hasTracks ? trackLength : 0;
@@ -143,7 +142,6 @@ public sealed class MinecartRenderer
 
         if (hasTracks)
         {
-            // Rail corridor between tunnel and cart.
             for (int segment = trackLength; segment >= 1; segment--)
             {
                 IReadOnlyList<Point> segmentTiles = this.GetTrackSegmentTiles(tileX, tileY, direction, segment);
@@ -155,7 +153,6 @@ public sealed class MinecartRenderer
                     this.DrawProceduralTracks(batch, segmentBounds, direction, alpha, invalid);
             }
 
-            // The cart is visibly sitting on rails, but the logical footprint remains one cart tile.
             Rectangle cartTrackBounds = this.WorldToScreen(StationGeometry.GetCartPixelBounds(tileX, tileY, direction));
             Texture2D? tracksUnderCart = this.visualAssets.Tracks;
             if (tracksUnderCart is not null && direction == 2)
@@ -203,12 +200,11 @@ public sealed class MinecartRenderer
 
     private Rectangle GetTunnelTextureBounds(Rectangle logicalBounds)
     {
-        // The tunnel structure may overhang its logical 1x1 tile visually.
         return new Rectangle(
-            logicalBounds.X - 8,
-            logicalBounds.Y - 24,
-            logicalBounds.Width + 16,
-            logicalBounds.Height + 24
+            logicalBounds.X - 6,
+            logicalBounds.Y - 22,
+            logicalBounds.Width + 12,
+            logicalBounds.Height + 22
         );
     }
 
@@ -219,140 +215,138 @@ public sealed class MinecartRenderer
         float alpha,
         bool invalid)
     {
-        Color shadow = Color.Black * (0.82f * alpha);
-        Color timberDark = (invalid ? new Color(100, 35, 30) : new Color(82, 48, 30)) * alpha;
-        Color timber = (invalid ? new Color(150, 58, 48) : new Color(139, 83, 45)) * alpha;
-        Color timberLight = (invalid ? new Color(190, 78, 65) : new Color(187, 117, 61)) * alpha;
-        Color metal = (invalid ? new Color(155, 65, 60) : new Color(104, 96, 82)) * alpha;
-        Color lamp = (invalid ? new Color(220, 110, 80) : new Color(245, 194, 82)) * alpha;
-
-        bool vertical = StationGeometry.NormalizeDirection(direction) is 0 or 2;
+        Color shadow = Color.Black * (0.88f * alpha);
+        Color timberDark = (invalid ? new Color(100, 35, 30) : new Color(77, 44, 27)) * alpha;
+        Color timber = (invalid ? new Color(150, 58, 48) : new Color(133, 76, 39)) * alpha;
+        Color timberLight = (invalid ? new Color(190, 78, 65) : new Color(184, 111, 54)) * alpha;
+        Color metal = (invalid ? new Color(155, 65, 60) : new Color(103, 101, 91)) * alpha;
+        Color lamp = (invalid ? new Color(220, 110, 80) : new Color(245, 190, 70)) * alpha;
+        int normalized = StationGeometry.NormalizeDirection(direction);
+        bool vertical = normalized is 0 or 2;
 
         if (vertical)
         {
-            Rectangle opening = new(bounds.X + 17, bounds.Y - 6, 30, 58);
+            int centerX = bounds.Center.X;
+            Rectangle opening = new(centerX - 15, bounds.Y - 12, 30, 56);
             this.Fill(batch, opening, shadow);
 
-            // Timber posts and lintel, inspired by a compact mine entrance.
-            this.Fill(batch, new Rectangle(bounds.X + 10, bounds.Y - 10, 8, 68), timberDark);
-            this.Fill(batch, new Rectangle(bounds.Right - 18, bounds.Y - 10, 8, 68), timberDark);
-            this.Fill(batch, new Rectangle(bounds.X + 5, bounds.Y - 15, bounds.Width - 10, 10), timber);
-            this.Fill(batch, new Rectangle(bounds.X + 9, bounds.Y - 12, bounds.Width - 18, 4), timberLight);
+            this.Fill(batch, new Rectangle(centerX - 24, bounds.Y - 17, 8, 66), timberDark);
+            this.Fill(batch, new Rectangle(centerX + 16, bounds.Y - 17, 8, 66), timberDark);
+            this.Fill(batch, new Rectangle(centerX - 28, bounds.Y - 22, 56, 10), timber);
+            this.Fill(batch, new Rectangle(centerX - 23, bounds.Y - 19, 46, 3), timberLight);
 
-            // Short rails disappear into the dark opening.
-            this.Fill(batch, new Rectangle(bounds.X + 24, bounds.Y + 25, 4, 38), metal);
-            this.Fill(batch, new Rectangle(bounds.X + 36, bounds.Y + 25, 4, 38), metal);
-            for (int y = bounds.Y + 28; y < bounds.Bottom; y += 13)
-                this.Fill(batch, new Rectangle(bounds.X + 20, y, 24, 4), timber);
+            this.Fill(batch, new Rectangle(centerX - 10, bounds.Y + 20, 4, 44), metal);
+            this.Fill(batch, new Rectangle(centerX + 6, bounds.Y + 20, 4, 44), metal);
+            for (int y = bounds.Y + 24; y < bounds.Bottom; y += 14)
+                this.Fill(batch, new Rectangle(centerX - 15, y, 30, 4), timber);
 
-            // Small warm work lamp on the right post.
-            this.Fill(batch, new Rectangle(bounds.Right - 14, bounds.Y + 5, 8, 12), timberDark);
-            this.Fill(batch, new Rectangle(bounds.Right - 13, bounds.Y + 7, 6, 7), lamp);
+            this.Fill(batch, new Rectangle(centerX + 25, bounds.Y - 5, 8, 15), timberDark);
+            this.Fill(batch, new Rectangle(centerX + 26, bounds.Y - 2, 6, 9), lamp);
         }
         else
         {
-            Rectangle opening = new(bounds.X + 6, bounds.Y + 17, 52, 30);
+            int centerY = bounds.Center.Y;
+            Rectangle opening = new(bounds.X + 18, centerY - 15, 46, 30);
             this.Fill(batch, opening, shadow);
 
-            this.Fill(batch, new Rectangle(bounds.X + 1, bounds.Y + 10, 62, 8), timberDark);
-            this.Fill(batch, new Rectangle(bounds.X + 1, bounds.Bottom - 18, 62, 8), timberDark);
-            this.Fill(batch, new Rectangle(bounds.X - 4, bounds.Y + 5, 10, bounds.Height - 10), timber);
-            this.Fill(batch, new Rectangle(bounds.X - 1, bounds.Y + 9, 4, bounds.Height - 18), timberLight);
+            this.Fill(batch, new Rectangle(bounds.X + 10, centerY - 24, 58, 8), timberDark);
+            this.Fill(batch, new Rectangle(bounds.X + 10, centerY + 16, 58, 8), timberDark);
+            this.Fill(batch, new Rectangle(bounds.X + 5, centerY - 28, 10, 56), timber);
+            this.Fill(batch, new Rectangle(bounds.X + 8, centerY - 23, 3, 46), timberLight);
 
-            this.Fill(batch, new Rectangle(bounds.X + 22, bounds.Y + 24, 42, 4), metal);
-            this.Fill(batch, new Rectangle(bounds.X + 22, bounds.Y + 36, 42, 4), metal);
-            for (int x = bounds.X + 24; x < bounds.Right; x += 13)
-                this.Fill(batch, new Rectangle(x, bounds.Y + 20, 4, 24), timber);
+            this.Fill(batch, new Rectangle(bounds.X + 22, centerY - 10, 42, 4), metal);
+            this.Fill(batch, new Rectangle(bounds.X + 22, centerY + 6, 42, 4), metal);
+            for (int x = bounds.X + 24; x < bounds.Right; x += 14)
+                this.Fill(batch, new Rectangle(x, centerY - 15, 4, 30), timber);
 
-            this.Fill(batch, new Rectangle(bounds.X + 8, bounds.Bottom - 14, 12, 8), timberDark);
-            this.Fill(batch, new Rectangle(bounds.X + 10, bounds.Bottom - 13, 7, 6), lamp);
+            this.Fill(batch, new Rectangle(bounds.X + 15, centerY + 25, 15, 8), timberDark);
+            this.Fill(batch, new Rectangle(bounds.X + 18, centerY + 26, 9, 6), lamp);
         }
     }
 
     private void DrawProceduralTracks(SpriteBatch batch, Rectangle bounds, int direction, float alpha, bool invalid)
     {
-        Color metal = (invalid ? new Color(170, 55, 55) : new Color(124, 121, 111)) * alpha;
-        Color highlight = (invalid ? new Color(205, 78, 70) : new Color(184, 178, 157)) * alpha;
-        Color wood = (invalid ? new Color(155, 50, 45) : new Color(116, 73, 43)) * alpha;
-        Color woodLight = (invalid ? new Color(190, 72, 64) : new Color(160, 103, 55)) * alpha;
+        Color metal = (invalid ? new Color(170, 55, 55) : new Color(119, 117, 109)) * alpha;
+        Color highlight = (invalid ? new Color(205, 78, 70) : new Color(177, 171, 153)) * alpha;
+        Color wood = (invalid ? new Color(155, 50, 45) : new Color(105, 64, 38)) * alpha;
+        Color woodLight = (invalid ? new Color(190, 72, 64) : new Color(151, 92, 47)) * alpha;
         bool vertical = StationGeometry.NormalizeDirection(direction) is 0 or 2;
 
         if (vertical)
         {
-            int rail1 = bounds.X + 22;
-            int rail2 = bounds.X + 42;
-            this.Fill(batch, new Rectangle(rail1 - 2, bounds.Y, 5, bounds.Height), metal);
-            this.Fill(batch, new Rectangle(rail2 - 2, bounds.Y, 5, bounds.Height), metal);
+            int centerX = bounds.Center.X;
+            int rail1 = centerX - 9;
+            int rail2 = centerX + 9;
+            this.Fill(batch, new Rectangle(rail1 - 2, bounds.Y, 4, bounds.Height), metal);
+            this.Fill(batch, new Rectangle(rail2 - 2, bounds.Y, 4, bounds.Height), metal);
             this.Fill(batch, new Rectangle(rail1 - 1, bounds.Y, 1, bounds.Height), highlight);
             this.Fill(batch, new Rectangle(rail2 - 1, bounds.Y, 1, bounds.Height), highlight);
 
-            for (int y = bounds.Y + 6; y < bounds.Bottom; y += 16)
+            for (int y = bounds.Y + 5; y < bounds.Bottom; y += 15)
             {
-                this.Fill(batch, new Rectangle(bounds.X + 14, y, 36, 6), wood);
-                this.Fill(batch, new Rectangle(bounds.X + 17, y + 1, 30, 2), woodLight);
+                this.Fill(batch, new Rectangle(centerX - 15, y, 30, 5), wood);
+                this.Fill(batch, new Rectangle(centerX - 12, y + 1, 24, 2), woodLight);
             }
         }
         else
         {
-            int rail1 = bounds.Y + 22;
-            int rail2 = bounds.Y + 42;
-            this.Fill(batch, new Rectangle(bounds.X, rail1 - 2, bounds.Width, 5), metal);
-            this.Fill(batch, new Rectangle(bounds.X, rail2 - 2, bounds.Width, 5), metal);
+            int centerY = bounds.Center.Y;
+            int rail1 = centerY - 9;
+            int rail2 = centerY + 9;
+            this.Fill(batch, new Rectangle(bounds.X, rail1 - 2, bounds.Width, 4), metal);
+            this.Fill(batch, new Rectangle(bounds.X, rail2 - 2, bounds.Width, 4), metal);
             this.Fill(batch, new Rectangle(bounds.X, rail1 - 1, bounds.Width, 1), highlight);
             this.Fill(batch, new Rectangle(bounds.X, rail2 - 1, bounds.Width, 1), highlight);
 
-            for (int x = bounds.X + 6; x < bounds.Right; x += 16)
+            for (int x = bounds.X + 5; x < bounds.Right; x += 15)
             {
-                this.Fill(batch, new Rectangle(x, bounds.Y + 14, 6, 36), wood);
-                this.Fill(batch, new Rectangle(x + 1, bounds.Y + 17, 2, 30), woodLight);
+                this.Fill(batch, new Rectangle(x, centerY - 15, 5, 30), wood);
+                this.Fill(batch, new Rectangle(x + 1, centerY - 12, 2, 24), woodLight);
             }
         }
     }
 
     private void DrawProceduralMinecart(SpriteBatch batch, Rectangle bounds, int direction, float alpha, bool invalid)
     {
-        Color outline = (invalid ? new Color(90, 27, 27) : new Color(47, 39, 35)) * alpha;
-        Color metal = (invalid ? new Color(165, 58, 55) : new Color(108, 103, 94)) * alpha;
-        Color metalLight = (invalid ? new Color(200, 82, 72) : new Color(160, 151, 130)) * alpha;
-        Color wood = (invalid ? new Color(150, 50, 45) : new Color(120, 72, 43)) * alpha;
-        Color woodLight = (invalid ? new Color(195, 76, 65) : new Color(173, 106, 57)) * alpha;
+        Color outline = (invalid ? new Color(90, 27, 27) : new Color(43, 36, 33)) * alpha;
+        Color metal = (invalid ? new Color(165, 58, 55) : new Color(96, 94, 89)) * alpha;
+        Color metalLight = (invalid ? new Color(200, 82, 72) : new Color(153, 146, 130)) * alpha;
+        Color wood = (invalid ? new Color(150, 50, 45) : new Color(112, 65, 39)) * alpha;
+        Color woodLight = (invalid ? new Color(195, 76, 65) : new Color(166, 99, 51)) * alpha;
         int normalized = StationGeometry.NormalizeDirection(direction);
         bool verticalTravel = normalized is 0 or 2;
 
-        // Compact visual contained around one logical tile. A few pixels may visually
-        // approach the tile edge, but interaction/collision remains exactly 1x1.
         Rectangle body = verticalTravel
-            ? new Rectangle(bounds.X + 7, bounds.Y + 13, 50, 36)
-            : new Rectangle(bounds.X + 13, bounds.Y + 7, 36, 50);
+            ? new Rectangle(bounds.Center.X - 21, bounds.Center.Y - 15, 42, 30)
+            : new Rectangle(bounds.Center.X - 15, bounds.Center.Y - 21, 30, 42);
 
         this.Fill(batch, body, outline);
-        Rectangle shell = this.Inset(body, 4);
+        Rectangle shell = this.Inset(body, 3);
         this.Fill(batch, shell, wood);
 
-        // Dark open interior/tub.
         if (verticalTravel)
         {
-            this.Fill(batch, new Rectangle(shell.X + 4, shell.Y + 4, shell.Width - 8, 13), outline);
-            this.Fill(batch, new Rectangle(shell.X + 5, shell.Y + 5, shell.Width - 10, 3), metal);
-            this.Fill(batch, new Rectangle(shell.X + 4, shell.Bottom - 8, shell.Width - 8, 4), woodLight);
+            this.Fill(batch, new Rectangle(shell.X + 4, shell.Y + 4, shell.Width - 8, 11), outline);
+            this.Fill(batch, new Rectangle(shell.X + 5, shell.Y + 5, shell.Width - 10, 2), metal);
+            this.Fill(batch, new Rectangle(shell.X + 4, shell.Bottom - 7, shell.Width - 8, 3), woodLight);
 
             int wheelY = normalized == 0 ? body.Y - 3 : body.Bottom - 3;
-            this.Fill(batch, new Rectangle(body.X + 7, wheelY, 11, 7), outline);
-            this.Fill(batch, new Rectangle(body.Right - 18, wheelY, 11, 7), outline);
-            this.Fill(batch, new Rectangle(body.X + 10, wheelY + 2, 5, 4), metalLight);
-            this.Fill(batch, new Rectangle(body.Right - 15, wheelY + 2, 5, 4), metalLight);
+            this.Fill(batch, new Rectangle(body.X + 5, wheelY, 9, 6), outline);
+            this.Fill(batch, new Rectangle(body.Right - 14, wheelY, 9, 6), outline);
+            this.Fill(batch, new Rectangle(body.X + 7, wheelY + 2, 5, 3), metalLight);
+            this.Fill(batch, new Rectangle(body.Right - 12, wheelY + 2, 5, 3), metalLight);
         }
         else
         {
-            this.Fill(batch, new Rectangle(shell.X + 4, shell.Y + 4, 13, shell.Height - 8), outline);
-            this.Fill(batch, new Rectangle(shell.X + 5, shell.Y + 5, 3, shell.Height - 10), metal);
-            this.Fill(batch, new Rectangle(shell.Right - 8, shell.Y + 4, 4, shell.Height - 8), woodLight);
+            this.Fill(batch, new Rectangle(shell.X + 4, shell.Y + 4, 11, shell.Height - 8), outline);
+            this.Fill(batch, new Rectangle(shell.X + 5, shell.Y + 5, 2, shell.Height - 10), metal);
+            this.Fill(batch, new Rectangle(shell.Right - 7, shell.Y + 4, 3, shell.Height - 8), woodLight);
 
             int wheelX = normalized == 3 ? body.X - 3 : body.Right - 3;
-            this.Fill(batch, new Rectangle(wheelX, body.Y + 7, 7, 11), outline);
-            this.Fill(batch, new Rectangle(wheelX, body.Bottom - 18, 7, 11), outline);
-            this.Fill(batch, new Rectangle(wheelX + 2, body.Y + 10, 4, 5), metalLight);
-            this.Fill(batch, new Rectangle(wheelX + 2, body.Bottom - 15, 4, 5), metalLight);
+            this.Fill(batch, new Rectangle(wheelX, body.Y + 5, 6, 9), outline);
+            this.Fill(batch, new Rectangle(wheelX, body.Bottom - 14, 6, 9), outline);
+            this.Fill(batch, new Rectangle(wheelX + 2, body.Y + 7, 3, 5), metalLight);
+            this.Fill(batch, new Rectangle(wheelX + 2, body.Bottom - 12, 3, 5), metalLight);
         }
     }
 
