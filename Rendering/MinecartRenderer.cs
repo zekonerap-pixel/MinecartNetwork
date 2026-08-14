@@ -13,12 +13,14 @@ public sealed class MinecartRenderer
     private readonly IModHelper helper;
     private readonly StationManager stations;
     private readonly PlacementManager placement;
+    private readonly MinecartVisualAssets visualAssets;
 
     public MinecartRenderer(IModHelper helper, StationManager stations, PlacementManager placement)
     {
         this.helper = helper;
         this.stations = stations;
         this.placement = placement;
+        this.visualAssets = new MinecartVisualAssets(helper);
     }
 
     public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
@@ -118,28 +120,79 @@ public sealed class MinecartRenderer
 
         int x = (int)origin.X;
         int y = (int)origin.Y;
-
-        Color dark = (invalid ? new Color(95, 28, 28) : new Color(52, 42, 38)) * alpha;
-        Color metal = (invalid ? new Color(170, 55, 55) : new Color(116, 116, 112)) * alpha;
-        Color wood = (invalid ? new Color(155, 50, 45) : new Color(128, 78, 48)) * alpha;
-        Color woodLight = (invalid ? new Color(200, 74, 65) : new Color(180, 116, 66)) * alpha;
-        Color shadow = Color.Black * (0.65f * alpha);
+        Color spriteTint = (invalid ? new Color(255, 105, 105) : Color.White) * alpha;
 
         if (hasWallHole)
         {
-            this.Fill(batch, new Rectangle(x + 18, y - 24, 92, 48), shadow);
-            this.Fill(batch, new Rectangle(x + 26, y - 18, 76, 42), dark);
+            Texture2D? wallHole = this.visualAssets.WallHole;
+            if (wallHole is not null)
+                this.DrawSpriteLayer(batch, wallHole, x, y, spriteTint);
+            else
+                this.DrawProceduralWallHole(batch, x, y, alpha, invalid);
         }
 
         if (hasTracks)
         {
-            for (int sleeperX = x + 4; sleeperX <= x + 116; sleeperX += 28)
-                this.Fill(batch, new Rectangle(sleeperX, y + 52, 18, 6), wood);
-
-            this.Fill(batch, new Rectangle(x, y + 48, 128, 5), metal);
-            this.Fill(batch, new Rectangle(x, y + 59, 128, 5), metal);
-            this.Fill(batch, new Rectangle(x, y + 49, 128, 2), Color.White * (0.25f * alpha));
+            Texture2D? tracks = this.visualAssets.Tracks;
+            if (tracks is not null)
+                this.DrawSpriteLayer(batch, tracks, x, y, spriteTint);
+            else
+                this.DrawProceduralTracks(batch, x, y, alpha, invalid);
         }
+
+        Texture2D? minecart = this.visualAssets.Minecart;
+        if (minecart is not null)
+            this.DrawSpriteLayer(batch, minecart, x, y, spriteTint);
+        else
+            this.DrawProceduralMinecart(batch, x, y, alpha, invalid);
+    }
+
+    private void DrawSpriteLayer(SpriteBatch batch, Texture2D texture, int x, int y, Color tint)
+    {
+        int width = MinecartVisualAssets.CanvasWidth * MinecartVisualAssets.PixelScale;
+        int height = MinecartVisualAssets.CanvasHeight * MinecartVisualAssets.PixelScale;
+        int visualTop = y - (height - Game1.tileSize);
+
+        batch.Draw(
+            texture,
+            new Rectangle(x, visualTop, width, height),
+            null,
+            tint,
+            0f,
+            Vector2.Zero,
+            SpriteEffects.None,
+            0f
+        );
+    }
+
+    private void DrawProceduralWallHole(SpriteBatch batch, int x, int y, float alpha, bool invalid)
+    {
+        Color dark = (invalid ? new Color(95, 28, 28) : new Color(52, 42, 38)) * alpha;
+        Color shadow = Color.Black * (0.65f * alpha);
+
+        this.Fill(batch, new Rectangle(x + 18, y - 24, 92, 48), shadow);
+        this.Fill(batch, new Rectangle(x + 26, y - 18, 76, 42), dark);
+    }
+
+    private void DrawProceduralTracks(SpriteBatch batch, int x, int y, float alpha, bool invalid)
+    {
+        Color metal = (invalid ? new Color(170, 55, 55) : new Color(116, 116, 112)) * alpha;
+        Color wood = (invalid ? new Color(155, 50, 45) : new Color(128, 78, 48)) * alpha;
+
+        for (int sleeperX = x + 4; sleeperX <= x + 116; sleeperX += 28)
+            this.Fill(batch, new Rectangle(sleeperX, y + 52, 18, 6), wood);
+
+        this.Fill(batch, new Rectangle(x, y + 48, 128, 5), metal);
+        this.Fill(batch, new Rectangle(x, y + 59, 128, 5), metal);
+        this.Fill(batch, new Rectangle(x, y + 49, 128, 2), Color.White * (0.25f * alpha));
+    }
+
+    private void DrawProceduralMinecart(SpriteBatch batch, int x, int y, float alpha, bool invalid)
+    {
+        Color dark = (invalid ? new Color(95, 28, 28) : new Color(52, 42, 38)) * alpha;
+        Color metal = (invalid ? new Color(170, 55, 55) : new Color(116, 116, 112)) * alpha;
+        Color wood = (invalid ? new Color(155, 50, 45) : new Color(128, 78, 48)) * alpha;
+        Color woodLight = (invalid ? new Color(200, 74, 65) : new Color(180, 116, 66)) * alpha;
 
         this.Fill(batch, new Rectangle(x + 14, y + 12, 100, 8), dark);
         this.Fill(batch, new Rectangle(x + 18, y + 18, 92, 30), wood);
