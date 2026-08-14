@@ -14,6 +14,7 @@ public sealed class InteractionManager
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
     private readonly StationManager stations;
+    private readonly VanillaMinecartService vanillaMinecarts;
     private readonly TeleportService teleport;
     private readonly PlacementManager placement;
 
@@ -23,12 +24,14 @@ public sealed class InteractionManager
         IModHelper helper,
         IMonitor monitor,
         StationManager stations,
+        VanillaMinecartService vanillaMinecarts,
         TeleportService teleport,
         PlacementManager placement)
     {
         this.helper = helper;
         this.monitor = monitor;
         this.stations = stations;
+        this.vanillaMinecarts = vanillaMinecarts;
         this.teleport = teleport;
         this.placement = placement;
     }
@@ -41,8 +44,6 @@ public sealed class InteractionManager
             || !e.Button.IsActionButton())
             return;
 
-        // Mouse/controller action: prefer the cart surface under the cursor.
-        // Keyboard action: fall back to the cart the player is facing/standing next to.
         MinecartStation? station = this.GetHoveredStation(requireReach: true) ?? this.GetFacedStation();
         if (station is null)
             return;
@@ -64,7 +65,6 @@ public sealed class InteractionManager
         bool hovering = this.GetHoveredStation(requireReach: true) is not null;
         if (hovering)
         {
-            // 2 is Stardew Valley's standard clickable/action cursor.
             Game1.mouseCursor = ActionCursor;
             this.wasHoveringMinecart = true;
         }
@@ -109,8 +109,6 @@ public sealed class InteractionManager
         if (!station.HasPhysicalMinecart)
             return Rectangle.Empty;
 
-        // The cart visually occupies two horizontal tiles. Using the whole 2x1
-        // footprint means every visible part of the cart opens the same menu.
         return new Rectangle(
             station.VisualTileX!.Value * Game1.tileSize,
             station.VisualTileY!.Value * Game1.tileSize,
@@ -170,8 +168,10 @@ public sealed class InteractionManager
             this.helper,
             this.monitor,
             this.stations,
+            this.vanillaMinecarts,
             this.teleport,
-            station
+            station.Name,
+            excludedCustomStationId: station.Id
         );
     }
 
