@@ -181,7 +181,8 @@ public sealed class InteractionManager
             this.teleport,
             this.placement,
             station.Name,
-            excludedCustomStationId: station.Id
+            excludedCustomStationId: station.Id,
+            excludedVanillaDestinationId: MinecartDataSyncService.GetDestinationId(station)
         );
     }
 
