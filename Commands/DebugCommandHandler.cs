@@ -69,7 +69,7 @@ public sealed class DebugCommandHandler
         }
 
         string name = args[0];
-        string category = args.Length > 1 ? args[1] : this.config.DefaultCategory;
+        string category = args.Length > 1 ? string.Join(' ', args.Skip(1)) : this.config.DefaultCategory;
         MinecartStation station = this.stations.AddAtPlayer(name, category);
 
         this.monitor.Log(
@@ -112,19 +112,28 @@ public sealed class DebugCommandHandler
     {
         if (args.Length == 0)
         {
-            this.monitor.Log("Usage: mn goto <name-or-id>", LogLevel.Info);
+            this.monitor.Log("Usage: mn goto <name-or-id> OR mn goto <category> <name>", LogLevel.Info);
             return;
         }
 
         string target = string.Join(' ', args);
-        MinecartStation? station = this.stations.Find(target);
-        if (station is null)
+        IReadOnlyList<MinecartStation> matches = this.stations.FindMatches(target);
+
+        if (matches.Count == 0)
         {
             this.monitor.Log($"Station '{target}' was not found.", LogLevel.Warn);
             return;
         }
 
-        if (!this.teleport.TryWarp(station, out string? error))
+        if (matches.Count > 1)
+        {
+            this.monitor.Log($"Station '{target}' is ambiguous. Use category + name or an ID prefix:", LogLevel.Warn);
+            foreach (MinecartStation match in matches)
+                this.monitor.Log($"  {match.Category} -> {match.Name} [{match.Id[..8]}]", LogLevel.Info);
+            return;
+        }
+
+        if (!this.teleport.TryWarp(matches[0], out string? error))
             this.monitor.Log(error ?? "The warp failed.", LogLevel.Error);
     }
 
@@ -132,21 +141,39 @@ public sealed class DebugCommandHandler
     {
         if (args.Length == 0)
         {
-            this.monitor.Log("Usage: mn remove <name-or-id>", LogLevel.Info);
+            this.monitor.Log("Usage: mn remove <name-or-id> OR mn remove <category> <name>", LogLevel.Info);
             return;
         }
 
         string target = string.Join(' ', args);
-        bool removed = this.stations.Remove(target);
-        this.monitor.Log(removed ? $"Removed station '{target}'." : $"Station '{target}' was not found.", removed ? LogLevel.Info : LogLevel.Warn);
+        IReadOnlyList<MinecartStation> matches = this.stations.FindMatches(target);
+
+        if (matches.Count == 0)
+        {
+            this.monitor.Log($"Station '{target}' was not found.", LogLevel.Warn);
+            return;
+        }
+
+        if (matches.Count > 1)
+        {
+            this.monitor.Log($"Station '{target}' is ambiguous. Use category + name or an ID prefix:", LogLevel.Warn);
+            foreach (MinecartStation match in matches)
+                this.monitor.Log($"  {match.Category} -> {match.Name} [{match.Id[..8]}]", LogLevel.Info);
+            return;
+        }
+
+        MinecartStation station = matches[0];
+        bool removed = this.stations.Remove(station.Id);
+        this.monitor.Log(removed ? $"Removed station '{station.Name}'." : $"Station '{target}' was not found.", removed ? LogLevel.Info : LogLevel.Warn);
     }
 
     private void PrintHelp()
     {
         this.monitor.Log("Minecart Network test commands:", LogLevel.Info);
-        this.monitor.Log("  mn addhere <name> [category]  - create a station at your current tile", LogLevel.Info);
-        this.monitor.Log("  mn list                       - list saved stations", LogLevel.Info);
-        this.monitor.Log("  mn goto <name-or-id>          - warp to a station", LogLevel.Info);
-        this.monitor.Log("  mn remove <name-or-id>        - delete a station", LogLevel.Info);
+        this.monitor.Log("  mn addhere <name> [category]   - create a station at your current tile", LogLevel.Info);
+        this.monitor.Log("  mn list                        - list saved stations", LogLevel.Info);
+        this.monitor.Log("  mn goto <name-or-id>           - warp to a station", LogLevel.Info);
+        this.monitor.Log("  mn goto <category> <name>      - warp using category + name", LogLevel.Info);
+        this.monitor.Log("  mn remove <name-or-id>         - delete a station", LogLevel.Info);
     }
 }
