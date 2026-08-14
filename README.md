@@ -1,26 +1,26 @@
 # Minecart Network
 
-Early development version of a Stardew Valley SMAPI mod which lets players create named minecart stations and use them as destinations in an expandable travel network.
+Early development version of a Stardew Valley SMAPI mod which lets players create named minecart stations and use them together with the game's minecart destinations in an expandable travel network.
 
-## Current milestone: 0.1.0-alpha.3
+## Current milestone: 0.1.0-alpha.4
 
 Implemented foundation:
 
-- per-save custom station model;
-- save/load persistence through SMAPI save data;
-- station manager and teleport service;
-- physical minecart placement mode;
-- two-tile placement footprint plus a separate arrival tile;
-- placement validation against map bounds, objects, terrain features, wall/building tiles, and existing minecarts;
-- world rendering for placed minecarts;
-- live placement preview with valid/invalid footprint;
+- per-save custom station model and persistence;
+- physical minecart placement with a two-tile footprint and separate arrival tile;
+- placement validation and live valid/invalid preview;
 - optional tracks and wall-hole visuals;
 - movement remains available while placement controls are isolated;
-- physical minecart interaction through the player's configured action button;
-- first in-game destination menu;
-- collapsible destination categories;
-- scroll support for larger networks;
-- travel directly from menu selections;
+- full 2x1 minecart surface is interactive;
+- action cursor appears while hovering an in-range custom minecart;
+- left click anywhere on the cart surface or use the configured action button to open the network;
+- collapsible destination categories and scroll support;
+- custom and vanilla minecart destinations share the same menu;
+- vanilla Default minecarts are routed into the unified menu through Harmony;
+- vanilla destinations are read from `Data/Minecarts` instead of being hardcoded;
+- vanilla unlock and destination conditions are respected through game-state queries;
+- known vanilla destinations are grouped into friendly regions such as Town, Mines, Farm, and Mountain;
+- automatic GitHub Actions build validation using the SMAPI mod build environment;
 - English and Spanish interface text;
 - development console commands for end-to-end testing.
 
@@ -41,16 +41,17 @@ While placing a physical minecart:
 - `H`: toggle wall hole;
 - right click / Escape / controller B: cancel.
 
-To use a placed minecart, stand next to either of its two occupied tiles, face the cart, and press the game's configured action button. The destination menu groups all other enabled stations by category. Click a category header to collapse/expand it, or click a station to travel.
+To use a placed minecart, stand within interaction range and either click anywhere over its visible two-tile surface or use the game's configured action button. The unified menu mixes custom stations with currently available vanilla Default-network destinations and groups them by region/category.
 
-The current cart artwork is deliberately procedural placeholder pixel art so placement scale and footprint can be tested before final sprites are added.
+Priced `Data/Minecarts` destinations are intentionally skipped by the unified menu for now so the mod doesn't bypass ticket/payment mechanics from other mods.
+
+The current cart artwork is deliberately procedural placeholder pixel art so placement scale and interaction can be tested before final sprites are added.
 
 ## Next milestone
 
-- make the entire visible minecart surface interactive, instead of requiring interaction with a specific faced tile;
-- change the mouse cursor to the game's action cursor while hovering anywhere over an interactive minecart;
-- improve menu visuals, hover states, and controller navigation;
-- automatically map vanilla locations into friendly broad regions;
-- integrate vanilla minecart destinations into the same menu;
+- refine automatic region mapping for custom and modded locations;
+- improve menu hover states and controller navigation;
+- preserve compatible custom minecart networks beyond the vanilla `Default` network;
 - add station edit / rename / move / delete flow;
-- replace placeholder cart rendering with final pixel-art assets.
+- replace placeholder cart rendering with final pixel-art assets;
+- add travel animation, sounds, and effects.
