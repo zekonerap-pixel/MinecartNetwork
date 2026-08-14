@@ -45,8 +45,7 @@ public sealed class ModEntry : Mod
             this.Config
         );
 
-        VanillaMinecartPatch.Configure(this.TryOpenVanillaMinecartMenu);
-        new Harmony(this.ModManifest.UniqueID).PatchAll();
+        this.ApplyHarmonyPatches();
 
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
@@ -66,6 +65,32 @@ public sealed class ModEntry : Mod
         );
 
         this.Monitor.Log("Minecart Network initialized.", LogLevel.Debug);
+    }
+
+    private void ApplyHarmonyPatches()
+    {
+        VanillaMinecartPatch.Configure(this.Monitor, this.TryOpenVanillaMinecartMenu);
+
+        var harmony = new Harmony(this.ModManifest.UniqueID);
+        var original = AccessTools.Method(
+            typeof(GameLocation),
+            nameof(GameLocation.ShowMineCartMenu),
+            new[] { typeof(string), typeof(string) }
+        );
+
+        if (original is null)
+        {
+            this.Monitor.Log(
+                "Couldn't find GameLocation.ShowMineCartMenu; vanilla minecarts will keep their original menu.",
+                LogLevel.Warn
+            );
+            return;
+        }
+
+        harmony.Patch(
+            original,
+            prefix: new HarmonyMethod(typeof(VanillaMinecartPatch), nameof(VanillaMinecartPatch.Prefix))
+        );
     }
 
     private bool TryOpenVanillaMinecartMenu(string networkId, string? excludeDestinationId)
