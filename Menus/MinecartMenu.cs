@@ -20,6 +20,7 @@ public sealed class MinecartMenu : IClickableMenu
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
     private readonly StationManager stations;
+    private readonly LocationRegionService regions;
     private readonly VanillaMinecartService vanillaMinecarts;
     private readonly TeleportService teleport;
     private readonly PlacementManager placement;
@@ -36,6 +37,7 @@ public sealed class MinecartMenu : IClickableMenu
         IModHelper helper,
         IMonitor monitor,
         StationManager stations,
+        LocationRegionService regions,
         VanillaMinecartService vanillaMinecarts,
         TeleportService teleport,
         PlacementManager placement,
@@ -52,6 +54,7 @@ public sealed class MinecartMenu : IClickableMenu
         this.helper = helper;
         this.monitor = monitor;
         this.stations = stations;
+        this.regions = regions;
         this.vanillaMinecarts = vanillaMinecarts;
         this.teleport = teleport;
         this.placement = placement;
@@ -76,6 +79,7 @@ public sealed class MinecartMenu : IClickableMenu
                 Game1.activeClickableMenu = new StationEditMenu(
                     this.helper,
                     this.stations,
+                    this.regions,
                     this.placement,
                     origin
                 );
@@ -301,7 +305,7 @@ public sealed class MinecartMenu : IClickableMenu
 
             result.Add(new MenuDestination(
                 station.Name,
-                station.Category,
+                this.regions.GetStationCategory(station),
                 station,
                 null
             ));
