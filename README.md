@@ -2,7 +2,7 @@
 
 Early development version of a Stardew Valley SMAPI mod which lets players create named minecart stations and use them as destinations in an expandable travel network.
 
-## Current milestone: 0.1.0-alpha.2
+## Current milestone: 0.1.0-alpha.3
 
 Implemented foundation:
 
@@ -15,7 +15,13 @@ Implemented foundation:
 - world rendering for placed minecarts;
 - live placement preview with valid/invalid footprint;
 - optional tracks and wall-hole visuals;
-- English and Spanish placement HUD;
+- movement remains available while placement controls are isolated;
+- physical minecart interaction through the player's configured action button;
+- first in-game destination menu;
+- collapsible destination categories;
+- scroll support for larger networks;
+- travel directly from menu selections;
+- English and Spanish interface text;
 - development console commands for end-to-end testing.
 
 ### Development commands
@@ -35,12 +41,14 @@ While placing a physical minecart:
 - `H`: toggle wall hole;
 - right click / Escape / controller B: cancel.
 
+To use a placed minecart, stand next to either of its two occupied tiles, face the cart, and press the game's configured action button. The destination menu groups all other enabled stations by category. Click a category header to collapse/expand it, or click a station to travel.
+
 The current cart artwork is deliberately procedural placeholder pixel art so placement scale and footprint can be tested before final sprites are added.
 
 ## Next milestone
 
-- interact with a placed minecart in the world;
-- open the first destination menu from a placed cart;
-- collapsible destination sections grouped by map/location;
-- replace placeholder cart rendering with final pixel-art assets;
-- integrate vanilla minecart destinations.
+- improve menu visuals, hover states, and controller navigation;
+- automatically map vanilla locations into friendly broad regions;
+- integrate vanilla minecart destinations into the same menu;
+- add station edit / rename / move / delete flow;
+- replace placeholder cart rendering with final pixel-art assets.
