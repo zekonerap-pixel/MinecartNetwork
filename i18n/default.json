@@ -42,9 +42,9 @@
   "common.off": "OFF",
   "placement.title": "Placing: {{name}}  ·  {{category}}",
   "placement.move-title": "Moving: {{name}}  ·  {{category}}",
-  "placement.controls": "Left click/A: place  |  R/X: rotate  |  Q/E or LB/RB: length  |  T: tracks  |  H: wall hole  |  Right click/Esc/B: cancel",
-  "placement.move-controls": "Left click/A: confirm  |  R/X: rotate  |  Q/E or LB/RB: length  |  T: tracks  |  H: wall hole  |  Right click/Esc/B: cancel",
-  "placement.options": "Tracks: {{tracks}}  ·  Wall hole: {{hole}}",
+  "placement.controls": "Left click/A: place  |  R/X: rotate  |  Q/E or LB/RB: length  |  T: tracks  |  H: entrance  |  Right click/Esc/B: cancel",
+  "placement.move-controls": "Left click/A: confirm  |  R/X: rotate  |  Q/E or LB/RB: length  |  T: tracks  |  H: entrance  |  Right click/Esc/B: cancel",
+  "placement.options": "Tracks: {{tracks}}  ·  Mine entrance: {{hole}}",
   "placement.geometry": "Direction: {{direction}}  ·  Track sections between tunnel and minecart: {{length}}",
   "placement.valid": "Valid position · only the green arrival tile must remain clear",
   "placement.invalid": "Invalid position: {{reason}}"
