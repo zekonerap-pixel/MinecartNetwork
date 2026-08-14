@@ -11,6 +11,7 @@ public sealed class PlacementManager
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
     private readonly StationManager stations;
+    private readonly LocationRegionService regions;
     private readonly ModConfig config;
 
     private string? movingStationId;
@@ -19,31 +20,42 @@ public sealed class PlacementManager
     public bool IsMoving => this.movingStationId is not null;
     public string PendingName { get; private set; } = "";
     public string PendingCategory { get; private set; } = "";
+    public bool PendingUsesAutomaticCategory { get; private set; }
     public bool HasTracks { get; private set; } = true;
     public bool HasWallHole { get; private set; }
 
-    public PlacementManager(IModHelper helper, IMonitor monitor, StationManager stations, ModConfig config)
+    public PlacementManager(
+        IModHelper helper,
+        IMonitor monitor,
+        StationManager stations,
+        LocationRegionService regions,
+        ModConfig config)
     {
         this.helper = helper;
         this.monitor = monitor;
         this.stations = stations;
+        this.regions = regions;
         this.config = config;
     }
 
-    public bool Begin(string name, string category)
+    public bool Begin(string name, string? category = null)
     {
         if (!this.CanBeginPlacement())
             return false;
 
         this.movingStationId = null;
         this.PendingName = string.IsNullOrWhiteSpace(name) ? "Minecart" : name.Trim();
-        this.PendingCategory = string.IsNullOrWhiteSpace(category) ? this.config.DefaultCategory : category.Trim();
+        this.PendingUsesAutomaticCategory = string.IsNullOrWhiteSpace(category) && this.config.AutoCategorizeNewStations;
+        this.PendingCategory = this.PendingUsesAutomaticCategory
+            ? this.regions.GetCategoryForLocation(Game1.currentLocation.NameOrUniqueName)
+            : string.IsNullOrWhiteSpace(category) ? this.config.DefaultCategory : category.Trim();
         this.HasTracks = true;
         this.HasWallHole = false;
         this.IsPlacing = true;
 
+        string categoryMode = this.PendingUsesAutomaticCategory ? $"auto: {this.PendingCategory}" : this.PendingCategory;
         this.monitor.Log(
-            $"Placement started for '{this.PendingName}' ({this.PendingCategory}). Left click places; T toggles tracks; H toggles wall hole; right click/Escape cancels. Movement remains enabled.",
+            $"Placement started for '{this.PendingName}' ({categoryMode}). Left click places; T toggles tracks; H toggles wall hole; right click/Escape cancels. Movement remains enabled.",
             LogLevel.Info
         );
         return true;
@@ -62,7 +74,10 @@ public sealed class PlacementManager
 
         this.movingStationId = station.Id;
         this.PendingName = station.Name;
-        this.PendingCategory = station.Category;
+        this.PendingUsesAutomaticCategory = station.UseAutomaticCategory;
+        this.PendingCategory = this.PendingUsesAutomaticCategory
+            ? this.regions.GetCategoryForLocation(station.LocationName)
+            : station.Category;
         this.HasTracks = station.HasTracks;
         this.HasWallHole = station.HasWallHole;
         this.IsPlacing = true;
@@ -157,9 +172,12 @@ public sealed class PlacementManager
                 return;
             }
 
+            string effectiveCategory = this.PendingUsesAutomaticCategory
+                ? this.regions.GetCategoryForLocation(Game1.currentLocation.NameOrUniqueName)
+                : this.PendingCategory;
             Game1.playSound("coin");
             this.monitor.Log(
-                $"Moved station '{this.PendingName}' to {Game1.currentLocation.NameOrUniqueName} {tile.X},{tile.Y}; arrival tile {warpTile.X},{warpTile.Y}.",
+                $"Moved station '{this.PendingName}' to {Game1.currentLocation.NameOrUniqueName} {tile.X},{tile.Y}; arrival tile {warpTile.X},{warpTile.Y}; category {effectiveCategory}.",
                 LogLevel.Info
             );
             this.IsPlacing = false;
@@ -167,21 +185,26 @@ public sealed class PlacementManager
             return;
         }
 
+        string storedCategory = this.PendingUsesAutomaticCategory
+            ? this.regions.GetCategoryForLocation(Game1.currentLocation.NameOrUniqueName)
+            : this.PendingCategory;
+
         MinecartStation station = this.stations.AddPlaced(
             this.PendingName,
-            this.PendingCategory,
+            storedCategory,
             Game1.currentLocation.NameOrUniqueName,
             tile.X,
             tile.Y,
             warpTile.X,
             warpTile.Y,
             this.HasTracks,
-            this.HasWallHole
+            this.HasWallHole,
+            useAutomaticCategory: this.PendingUsesAutomaticCategory
         );
 
         Game1.playSound("coin");
         this.monitor.Log(
-            $"Placed station '{station.Name}' [{station.Id[..8]}] at {station.LocationName} {tile.X},{tile.Y}; arrival tile {warpTile.X},{warpTile.Y}.",
+            $"Placed station '{station.Name}' [{station.Id[..8]}] at {station.LocationName} {tile.X},{tile.Y}; arrival tile {warpTile.X},{warpTile.Y}; category {storedCategory}{(station.UseAutomaticCategory ? " (auto)" : "")}.",
             LogLevel.Info
         );
         this.IsPlacing = false;
