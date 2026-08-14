@@ -1,4 +1,5 @@
 using MinecartNetwork.Commands;
+using MinecartNetwork.Rendering;
 using MinecartNetwork.Services;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
@@ -10,6 +11,8 @@ public sealed class ModEntry : Mod
     private ModConfig Config = null!;
     private StationManager StationManager = null!;
     private TeleportService TeleportService = null!;
+    private PlacementManager PlacementManager = null!;
+    private MinecartRenderer MinecartRenderer = null!;
     private DebugCommandHandler DebugCommands = null!;
 
     public override void Entry(IModHelper helper)
@@ -17,11 +20,23 @@ public sealed class ModEntry : Mod
         this.Config = helper.ReadConfig<ModConfig>();
         this.StationManager = new StationManager(helper, this.Monitor);
         this.TeleportService = new TeleportService(this.Monitor, this.Config);
-        this.DebugCommands = new DebugCommandHandler(this.Monitor, this.StationManager, this.TeleportService, this.Config);
+        this.PlacementManager = new PlacementManager(helper, this.Monitor, this.StationManager, this.Config);
+        this.MinecartRenderer = new MinecartRenderer(helper, this.StationManager, this.PlacementManager);
+        this.DebugCommands = new DebugCommandHandler(
+            this.Monitor,
+            this.StationManager,
+            this.TeleportService,
+            this.PlacementManager,
+            this.Config
+        );
 
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
+
+        helper.Events.Input.ButtonPressed += this.PlacementManager.OnButtonPressed;
+        helper.Events.Display.RenderedWorld += this.MinecartRenderer.OnRenderedWorld;
+        helper.Events.Display.RenderedHud += this.MinecartRenderer.OnRenderedHud;
 
         helper.ConsoleCommands.Add(
             "mn",
@@ -44,6 +59,7 @@ public sealed class ModEntry : Mod
 
     private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
     {
+        this.PlacementManager.Cancel(silent: true);
         this.StationManager.Clear();
     }
 }
