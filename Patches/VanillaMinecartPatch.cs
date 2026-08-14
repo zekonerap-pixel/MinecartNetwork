@@ -1,30 +1,38 @@
-using HarmonyLib;
-using StardewValley;
+using StardewModdingAPI;
 
 namespace MinecartNetwork.Patches;
 
-[HarmonyPatch(typeof(GameLocation), nameof(GameLocation.ShowMineCartMenu))]
 internal static class VanillaMinecartPatch
 {
+    private static IMonitor? monitor;
     private static Func<string, string?, bool>? openUnifiedMenu;
 
-    public static void Configure(Func<string, string?, bool> handler)
+    public static void Configure(IMonitor modMonitor, Func<string, string?, bool> handler)
     {
+        monitor = modMonitor;
         openUnifiedMenu = handler;
     }
 
-    private static bool Prefix(string networkId, string? excludeDestinationId)
+    public static bool Prefix(string networkId, string? excludeDestinationId)
     {
-        if (openUnifiedMenu is null)
-            return true;
+        try
+        {
+            if (openUnifiedMenu is null)
+                return true;
 
-        // For now we only replace the vanilla/default network. Other modded
-        // minecart networks keep their original behavior until dedicated
-        // multi-network support is implemented.
-        if (!networkId.Equals("Default", StringComparison.OrdinalIgnoreCase))
-            return true;
+            if (!networkId.Equals("Default", StringComparison.OrdinalIgnoreCase))
+                return true;
 
-        bool handled = openUnifiedMenu(networkId, excludeDestinationId);
-        return !handled;
+            bool handled = openUnifiedMenu(networkId, excludeDestinationId);
+            return !handled;
+        }
+        catch (Exception ex)
+        {
+            monitor?.Log(
+                $"Failed intercepting the vanilla minecart menu; falling back to the original game menu. {ex}",
+                LogLevel.Error
+            );
+            return true;
+        }
     }
 }
