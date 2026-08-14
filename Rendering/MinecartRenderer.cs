@@ -76,14 +76,17 @@ public sealed class MinecartRenderer
             ? this.helper.Translation.Get("placement.valid")
             : this.helper.Translation.Get("placement.invalid", new { reason });
 
+        string titleKey = this.placement.IsMoving ? "placement.move-title" : "placement.title";
+        string controlsKey = this.placement.IsMoving ? "placement.move-controls" : "placement.controls";
+
         string text = string.Join(
             Environment.NewLine,
-            this.helper.Translation.Get("placement.title", new
+            this.helper.Translation.Get(titleKey, new
             {
                 name = this.placement.PendingName,
                 category = this.placement.PendingCategory
             }),
-            this.helper.Translation.Get("placement.controls"),
+            this.helper.Translation.Get(controlsKey),
             this.helper.Translation.Get("placement.options", new
             {
                 tracks = this.placement.HasTracks ? this.helper.Translation.Get("common.on") : this.helper.Translation.Get("common.off"),
