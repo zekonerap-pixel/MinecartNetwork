@@ -1,21 +1,22 @@
 # Minecart Network visual assets
 
-Minecart Network can render the custom station from three optional transparent PNG layers:
+Minecart Network can load optional transparent PNG layers for the custom station:
 
 - `minecart.png` — the cart itself;
-- `tracks.png` — optional rails/sleepers;
-- `wall_hole.png` — optional wall/tunnel opening.
+- `tracks.png` — one track section;
+- `wall_hole.png` — the tunnel/wall opening.
 
-## Canvas
+## Geometry note (alpha.9)
 
-Use a transparent **32 × 24 px** canvas for each layer. The game renders the canvas at 4× scale (**128 × 96 px**).
+Station geometry is now directional and variable-length. A station can face up, right, down, or left, and can have 0–8 full track sections between the wall opening and the cart.
 
-The bottom 16 source pixels align with the physical 2 × 1-tile minecart footprint. The upper 8 source pixels may extend above the cart footprint, primarily for the wall/tunnel opening and taller cart details.
+The old fixed 32 × 24 px composite is therefore no longer the final asset contract. During alpha.9:
 
-All three PNG files must use the same canvas and alignment so they can be composited directly in this order:
+- the existing PNG fallback path remains supported for the legacy/down-facing presentation;
+- rotated/new geometry uses procedural rendering when no suitable directional art exists;
+- tracks are repeated per configured section instead of being treated as one fixed station-wide layer;
+- the placement and save-data model are now independent of final sprite dimensions.
 
-1. wall hole;
-2. tracks;
-3. minecart.
+This is intentional: geometry is being stabilized before final pixel art is produced. The next visual milestone will define directional source frames for cart, track section, and tunnel opening based on the validated in-game footprint.
 
-Missing files are supported independently. If a layer doesn't exist, Minecart Network falls back to its current procedural rendering for that layer. This allows visual assets to be developed and replaced without changing placement, interaction, save data, or travel logic.
+Missing files are always supported. Minecart Network falls back independently to procedural rendering, so incomplete art cannot break placement, interaction, travel, or saved stations.
