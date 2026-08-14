@@ -175,6 +175,7 @@ public sealed class InteractionManager
             this.stations,
             this.vanillaMinecarts,
             this.teleport,
+            this.placement,
             station.Name,
             excludedCustomStationId: station.Id
         );
