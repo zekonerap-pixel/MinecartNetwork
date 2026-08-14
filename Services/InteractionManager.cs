@@ -14,6 +14,7 @@ public sealed class InteractionManager
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
     private readonly StationManager stations;
+    private readonly LocationRegionService regions;
     private readonly VanillaMinecartService vanillaMinecarts;
     private readonly TeleportService teleport;
     private readonly PlacementManager placement;
@@ -24,6 +25,7 @@ public sealed class InteractionManager
         IModHelper helper,
         IMonitor monitor,
         StationManager stations,
+        LocationRegionService regions,
         VanillaMinecartService vanillaMinecarts,
         TeleportService teleport,
         PlacementManager placement)
@@ -31,6 +33,7 @@ public sealed class InteractionManager
         this.helper = helper;
         this.monitor = monitor;
         this.stations = stations;
+        this.regions = regions;
         this.vanillaMinecarts = vanillaMinecarts;
         this.teleport = teleport;
         this.placement = placement;
@@ -173,6 +176,7 @@ public sealed class InteractionManager
             this.helper,
             this.monitor,
             this.stations,
+            this.regions,
             this.vanillaMinecarts,
             this.teleport,
             this.placement,
