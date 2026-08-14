@@ -10,13 +10,20 @@ public sealed class DebugCommandHandler
     private readonly IMonitor monitor;
     private readonly StationManager stations;
     private readonly TeleportService teleport;
+    private readonly PlacementManager placement;
     private readonly ModConfig config;
 
-    public DebugCommandHandler(IMonitor monitor, StationManager stations, TeleportService teleport, ModConfig config)
+    public DebugCommandHandler(
+        IMonitor monitor,
+        StationManager stations,
+        TeleportService teleport,
+        PlacementManager placement,
+        ModConfig config)
     {
         this.monitor = monitor;
         this.stations = stations;
         this.teleport = teleport;
+        this.placement = placement;
         this.config = config;
     }
 
@@ -38,6 +45,9 @@ public sealed class DebugCommandHandler
         {
             case "addhere":
                 this.AddHere(args.Skip(1).ToArray());
+                break;
+            case "place":
+                this.Place(args.Skip(1).ToArray());
                 break;
             case "list":
                 this.List();
@@ -78,6 +88,19 @@ public sealed class DebugCommandHandler
         );
     }
 
+    private void Place(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            this.monitor.Log("Usage: mn place <name> [category]", LogLevel.Info);
+            return;
+        }
+
+        string name = args[0];
+        string category = args.Length > 1 ? string.Join(' ', args.Skip(1)) : this.config.DefaultCategory;
+        this.placement.Begin(name, category);
+    }
+
     private void List()
     {
         if (!Context.IsWorldReady)
@@ -100,8 +123,12 @@ public sealed class DebugCommandHandler
             this.monitor.Log($"[{group.Key}]", LogLevel.Info);
             foreach (MinecartStation station in group)
             {
+                string physical = station.HasPhysicalMinecart
+                    ? $" | cart {station.VisualTileX},{station.VisualTileY}"
+                    : " | no physical cart";
+
                 this.monitor.Log(
-                    $"  {station.Name} | {station.Id[..8]} | {station.LocationName} {station.TileX},{station.TileY}",
+                    $"  {station.Name} | {station.Id[..8]} | {station.LocationName} arrival {station.TileX},{station.TileY}{physical}",
                     LogLevel.Info
                 );
             }
@@ -170,7 +197,8 @@ public sealed class DebugCommandHandler
     private void PrintHelp()
     {
         this.monitor.Log("Minecart Network test commands:", LogLevel.Info);
-        this.monitor.Log("  mn addhere <name> [category]   - create a station at your current tile", LogLevel.Info);
+        this.monitor.Log("  mn addhere <name> [category]   - create a non-physical station at your current tile", LogLevel.Info);
+        this.monitor.Log("  mn place <name> [category]     - enter physical minecart placement mode", LogLevel.Info);
         this.monitor.Log("  mn list                        - list saved stations", LogLevel.Info);
         this.monitor.Log("  mn goto <name-or-id>           - warp to a station", LogLevel.Info);
         this.monitor.Log("  mn goto <category> <name>      - warp using category + name", LogLevel.Info);
