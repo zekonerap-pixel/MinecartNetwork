@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using MinecartNetwork.Models;
 using MinecartNetwork.Services;
 using StardewModdingAPI;
@@ -32,6 +33,8 @@ public sealed class MinecartMenu : IClickableMenu
 
     private int scrollOffset;
     private int maxScroll;
+    private int selectedIndex = -1;
+    private bool controllerNavigationActive;
 
     public MinecartMenu(
         IModHelper helper,
@@ -61,79 +64,90 @@ public sealed class MinecartMenu : IClickableMenu
         this.originName = originName;
         this.excludedCustomStationId = excludedCustomStationId;
         this.excludedVanillaDestinationId = excludedVanillaDestinationId;
+
+        this.BuildRows();
+        this.ClampSelection();
     }
 
     public override void receiveLeftClick(int x, int y, bool playSound = true)
     {
         base.receiveLeftClick(x, y, playSound);
+        this.controllerNavigationActive = false;
 
         if (this.upperRightCloseButton?.containsPoint(x, y) == true)
             return;
 
         if (this.EditButton is Rectangle editButton && editButton.Contains(x, y))
         {
-            MinecartStation? origin = this.GetEditableOrigin();
-            if (origin is not null)
-            {
-                Game1.playSound("smallSelect");
-                Game1.activeClickableMenu = new StationEditMenu(
-                    this.helper,
-                    this.stations,
-                    this.regions,
-                    this.placement,
-                    origin
-                );
-            }
+            this.OpenEditor();
             return;
         }
 
         this.BuildRows();
 
-        foreach (MenuRow row in this.visibleRows)
+        for (int i = 0; i < this.visibleRows.Count; i++)
         {
+            MenuRow row = this.visibleRows[i];
             if (!row.Bounds.Contains(x, y))
                 continue;
 
-            if (row.Category is not null)
-            {
-                if (!this.collapsedCategories.Add(row.Category))
-                    this.collapsedCategories.Remove(row.Category);
-
-                Game1.playSound("shwip");
-                this.ClampScroll();
-                return;
-            }
-
-            if (row.Destination is null)
-                return;
-
-            MenuDestination destination = row.Destination;
-            Game1.exitActiveMenu();
-
-            bool success;
-            string? error;
-
-            if (destination.CustomStation is not null)
-                success = this.teleport.TryWarp(destination.CustomStation, out error);
-            else if (destination.VanillaDestination is not null)
-                success = this.vanillaMinecarts.TryWarp(destination.VanillaDestination, out error);
-            else
-                return;
-
-            if (!success)
-            {
-                this.monitor.Log(error ?? $"Failed to travel to destination '{destination.Name}'.", LogLevel.Error);
-                if (!string.IsNullOrWhiteSpace(error))
-                    Game1.showRedMessage(error);
-            }
-
+            this.selectedIndex = i;
+            this.ActivateRow(row);
             return;
         }
+    }
+
+    public override void receiveGamePadButton(Buttons button)
+    {
+        this.controllerNavigationActive = true;
+        this.BuildRows();
+
+        switch (button)
+        {
+            case Buttons.B:
+                Game1.exitActiveMenu();
+                return;
+
+            case Buttons.DPadUp:
+            case Buttons.LeftThumbstickUp:
+                this.MoveSelection(-1);
+                return;
+
+            case Buttons.DPadDown:
+            case Buttons.LeftThumbstickDown:
+                this.MoveSelection(1);
+                return;
+
+            case Buttons.LeftShoulder:
+                this.MoveSelection(-5);
+                return;
+
+            case Buttons.RightShoulder:
+                this.MoveSelection(5);
+                return;
+
+            case Buttons.DPadLeft:
+            case Buttons.LeftThumbstickLeft:
+                this.SetSelectedCategoryCollapsed(true);
+                return;
+
+            case Buttons.DPadRight:
+            case Buttons.LeftThumbstickRight:
+                this.SetSelectedCategoryCollapsed(false);
+                return;
+
+            case Buttons.A:
+                this.ActivateSelected();
+                return;
+        }
+
+        base.receiveGamePadButton(button);
     }
 
     public override void receiveScrollWheelAction(int direction)
     {
         base.receiveScrollWheelAction(direction);
+        this.controllerNavigationActive = false;
 
         if (this.maxScroll <= 0 || direction == 0)
             return;
@@ -185,20 +199,25 @@ public sealed class MinecartMenu : IClickableMenu
         }
         else
         {
-            foreach (MenuRow row in this.visibleRows)
+            for (int i = 0; i < this.visibleRows.Count; i++)
             {
+                MenuRow row = this.visibleRows[i];
                 if (row.Bounds.Bottom < this.ContentTop || row.Bounds.Top > this.ContentBottom)
                     continue;
 
+                bool selected = this.controllerNavigationActive && this.selectedIndex == i;
                 if (row.Category is not null)
-                    this.DrawCategoryRow(b, row);
+                    this.DrawCategoryRow(b, row, selected);
                 else if (row.Destination is not null)
-                    this.DrawDestinationRow(b, row);
+                    this.DrawDestinationRow(b, row, selected);
             }
         }
 
         if (this.EditButton is Rectangle editButton)
-            this.DrawEditButton(b, editButton);
+        {
+            bool selected = this.controllerNavigationActive && this.selectedIndex == this.visibleRows.Count;
+            this.DrawEditButton(b, editButton, selected);
+        }
 
         if (this.maxScroll > 0)
         {
@@ -231,6 +250,8 @@ public sealed class MinecartMenu : IClickableMenu
     private Rectangle? EditButton => this.GetEditableOrigin() is null
         ? null
         : new Rectangle(this.xPositionOnScreen + 34, this.yPositionOnScreen + this.height - 50, 210, 34);
+
+    private int SelectableCount => this.visibleRows.Count + (this.EditButton.HasValue ? 1 : 0);
 
     private MinecartStation? GetEditableOrigin()
     {
@@ -290,6 +311,8 @@ public sealed class MinecartMenu : IClickableMenu
                 y += StationHeight + RowGap;
             }
         }
+
+        this.ClampSelection();
     }
 
     private List<MenuDestination> GetDestinations()
@@ -328,12 +351,152 @@ public sealed class MinecartMenu : IClickableMenu
         return result;
     }
 
-    private void DrawCategoryRow(SpriteBatch b, MenuRow row)
+    private void ActivateRow(MenuRow row)
+    {
+        if (row.Category is not null)
+        {
+            if (!this.collapsedCategories.Add(row.Category))
+                this.collapsedCategories.Remove(row.Category);
+
+            Game1.playSound("shwip");
+            this.BuildRows();
+            this.EnsureSelectedVisible();
+            return;
+        }
+
+        if (row.Destination is null)
+            return;
+
+        MenuDestination destination = row.Destination;
+        Game1.exitActiveMenu();
+
+        bool success;
+        string? error;
+
+        if (destination.CustomStation is not null)
+            success = this.teleport.TryWarp(destination.CustomStation, out error);
+        else if (destination.VanillaDestination is not null)
+            success = this.vanillaMinecarts.TryWarp(destination.VanillaDestination, out error);
+        else
+            return;
+
+        if (!success)
+        {
+            this.monitor.Log(error ?? $"Failed to travel to destination '{destination.Name}'.", LogLevel.Error);
+            if (!string.IsNullOrWhiteSpace(error))
+                Game1.showRedMessage(error);
+        }
+    }
+
+    private void ActivateSelected()
+    {
+        this.BuildRows();
+        if (this.selectedIndex < 0)
+            return;
+
+        if (this.selectedIndex < this.visibleRows.Count)
+        {
+            this.ActivateRow(this.visibleRows[this.selectedIndex]);
+            return;
+        }
+
+        if (this.EditButton.HasValue && this.selectedIndex == this.visibleRows.Count)
+            this.OpenEditor();
+    }
+
+    private void OpenEditor()
+    {
+        MinecartStation? origin = this.GetEditableOrigin();
+        if (origin is null)
+            return;
+
+        Game1.playSound("smallSelect");
+        Game1.activeClickableMenu = new StationEditMenu(
+            this.helper,
+            this.stations,
+            this.regions,
+            this.placement,
+            origin
+        );
+    }
+
+    private void MoveSelection(int delta)
+    {
+        int count = this.SelectableCount;
+        if (count <= 0)
+        {
+            this.selectedIndex = -1;
+            return;
+        }
+
+        if (this.selectedIndex < 0)
+            this.selectedIndex = 0;
+        else
+            this.selectedIndex = Math.Clamp(this.selectedIndex + delta, 0, count - 1);
+
+        Game1.playSound("shiny4");
+        this.EnsureSelectedVisible();
+    }
+
+    private void SetSelectedCategoryCollapsed(bool collapsed)
+    {
+        this.BuildRows();
+        if (this.selectedIndex < 0 || this.selectedIndex >= this.visibleRows.Count)
+            return;
+
+        MenuRow row = this.visibleRows[this.selectedIndex];
+        if (row.Category is null)
+            return;
+
+        bool changed = collapsed
+            ? this.collapsedCategories.Add(row.Category)
+            : this.collapsedCategories.Remove(row.Category);
+
+        if (!changed)
+            return;
+
+        Game1.playSound("shwip");
+        this.BuildRows();
+        this.EnsureSelectedVisible();
+    }
+
+    private void EnsureSelectedVisible()
+    {
+        this.BuildRows();
+        if (this.selectedIndex < 0 || this.selectedIndex >= this.visibleRows.Count)
+            return;
+
+        Rectangle bounds = this.visibleRows[this.selectedIndex].Bounds;
+        if (bounds.Top < this.ContentTop)
+            this.scrollOffset = Math.Max(0, this.scrollOffset - (this.ContentTop - bounds.Top));
+        else if (bounds.Bottom > this.ContentBottom)
+            this.scrollOffset = Math.Min(this.maxScroll, this.scrollOffset + (bounds.Bottom - this.ContentBottom));
+
+        this.BuildRows();
+    }
+
+    private void ClampSelection()
+    {
+        int count = this.SelectableCount;
+        if (count <= 0)
+        {
+            this.selectedIndex = -1;
+            return;
+        }
+
+        if (this.selectedIndex < 0)
+            this.selectedIndex = 0;
+        else if (this.selectedIndex >= count)
+            this.selectedIndex = count - 1;
+    }
+
+    private void DrawCategoryRow(SpriteBatch b, MenuRow row, bool selected)
     {
         bool collapsed = this.collapsedCategories.Contains(row.Category!);
         bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
-        this.Fill(b, row.Bounds, hovered ? new Color(88, 68, 53) : new Color(72, 56, 45));
-        this.Outline(b, row.Bounds, hovered ? new Color(145, 108, 76) : new Color(115, 86, 63), hovered ? 3 : 2);
+        bool highlighted = hovered || selected;
+        this.Fill(b, row.Bounds, highlighted ? new Color(88, 68, 53) : new Color(72, 56, 45));
+        this.Outline(b, row.Bounds, highlighted ? new Color(145, 108, 76) : new Color(115, 86, 63), highlighted ? 3 : 2);
 
         string marker = collapsed ? "▶" : "▼";
         b.DrawString(
@@ -344,25 +507,27 @@ public sealed class MinecartMenu : IClickableMenu
         );
     }
 
-    private void DrawDestinationRow(SpriteBatch b, MenuRow row)
+    private void DrawDestinationRow(SpriteBatch b, MenuRow row, bool selected)
     {
         bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
-        this.Fill(b, row.Bounds, hovered ? new Color(66, 57, 51) : new Color(49, 43, 40));
-        this.Outline(b, row.Bounds, hovered ? new Color(109, 93, 80) : new Color(75, 66, 59), hovered ? 2 : 1);
+        bool highlighted = hovered || selected;
+        this.Fill(b, row.Bounds, highlighted ? new Color(66, 57, 51) : new Color(49, 43, 40));
+        this.Outline(b, row.Bounds, highlighted ? new Color(109, 93, 80) : new Color(75, 66, 59), highlighted ? 2 : 1);
 
         b.DrawString(
             Game1.smallFont,
             row.Destination!.Name,
             new Vector2(row.Bounds.X + 16, row.Bounds.Y + 8),
-            hovered ? Color.Wheat : Color.White
+            highlighted ? Color.Wheat : Color.White
         );
     }
 
-    private void DrawEditButton(SpriteBatch b, Rectangle bounds)
+    private void DrawEditButton(SpriteBatch b, Rectangle bounds, bool selected)
     {
         bool hovered = bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
-        this.Fill(b, bounds, hovered ? new Color(88, 68, 53) : new Color(59, 50, 45));
-        this.Outline(b, bounds, hovered ? new Color(145, 108, 76) : new Color(115, 86, 63), 2);
+        bool highlighted = hovered || selected;
+        this.Fill(b, bounds, highlighted ? new Color(88, 68, 53) : new Color(59, 50, 45));
+        this.Outline(b, bounds, highlighted ? new Color(145, 108, 76) : new Color(115, 86, 63), highlighted ? 3 : 2);
 
         string text = this.helper.Translation.Get("menu.edit-station");
         Vector2 size = Game1.smallFont.MeasureString(text) * 0.75f;
@@ -377,12 +542,6 @@ public sealed class MinecartMenu : IClickableMenu
             SpriteEffects.None,
             0f
         );
-    }
-
-    private void ClampScroll()
-    {
-        this.BuildRows();
-        this.scrollOffset = Math.Clamp(this.scrollOffset, 0, this.maxScroll);
     }
 
     private void Fill(SpriteBatch batch, Rectangle rectangle, Color color)
