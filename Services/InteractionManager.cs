@@ -40,11 +40,16 @@ public sealed class InteractionManager
     {
         if (!Context.IsWorldReady
             || this.placement.IsPlacing
-            || Game1.activeClickableMenu is not null
-            || !e.Button.IsActionButton())
+            || Game1.activeClickableMenu is not null)
             return;
 
-        MinecartStation? station = this.GetHoveredStation(requireReach: true) ?? this.GetFacedStation();
+        MinecartStation? hoveredStation = this.GetHoveredStation(requireReach: true);
+        bool clickedSurface = e.Button == SButton.MouseLeft && hoveredStation is not null;
+
+        if (!e.Button.IsActionButton() && !clickedSurface)
+            return;
+
+        MinecartStation? station = hoveredStation ?? this.GetFacedStation();
         if (station is null)
             return;
 
