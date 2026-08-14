@@ -11,14 +11,20 @@ public sealed class StationManager
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
     private readonly LocationRegionService regions;
+    private readonly StationEnvironmentService environment;
 
     public MinecartSaveData Data { get; private set; } = new();
 
-    public StationManager(IModHelper helper, IMonitor monitor, LocationRegionService regions)
+    public StationManager(
+        IModHelper helper,
+        IMonitor monitor,
+        LocationRegionService regions,
+        StationEnvironmentService environment)
     {
         this.helper = helper;
         this.monitor = monitor;
         this.regions = regions;
+        this.environment = environment;
     }
 
     public IReadOnlyList<MinecartStation> Stations => this.Data.Stations;
@@ -43,6 +49,7 @@ public sealed class StationManager
                 StationGeometry.MinTrackLength,
                 StationGeometry.MaxTrackLength
             );
+            station.ClearedObjects ??= new List<RemovedWorldObject>();
         }
 
         this.monitor.Log($"Loaded {this.Data.Stations.Count} custom minecart station(s).", LogLevel.Debug);
@@ -128,6 +135,22 @@ public sealed class StationManager
             CreatedByPlayerId = Game1.player.UniqueMultiplayerID
         };
 
+        GameLocation? location = Game1.getLocationFromName(locationName);
+        if (location is not null)
+        {
+            station.ClearedObjects = this.environment.Prepare(
+                location,
+                StationGeometry.GetConstructionTiles(
+                    cartTileX,
+                    cartTileY,
+                    stationDirection,
+                    trackLength,
+                    hasTracks,
+                    hasWallHole
+                )
+            );
+        }
+
         this.Data.Stations.Add(station);
         this.Save();
         return station;
@@ -200,6 +223,19 @@ public sealed class StationManager
         if (station is null || !station.HasPhysicalMinecart)
             return false;
 
+        GameLocation? destination = Game1.getLocationFromName(locationName);
+        if (destination is null)
+            return false;
+
+        if (!this.environment.Restore(station, out string? restoreError))
+        {
+            this.monitor.Log(
+                restoreError ?? $"Couldn't safely restore the old environment for station '{station.Name}'.",
+                LogLevel.Warn
+            );
+            return false;
+        }
+
         stationDirection = StationGeometry.NormalizeDirection(stationDirection);
         trackLength = Math.Clamp(trackLength, StationGeometry.MinTrackLength, StationGeometry.MaxTrackLength);
 
@@ -213,6 +249,17 @@ public sealed class StationManager
         station.TrackLength = trackLength;
         station.HasTracks = hasTracks;
         station.HasWallHole = hasWallHole;
+        station.ClearedObjects = this.environment.Prepare(
+            destination,
+            StationGeometry.GetConstructionTiles(
+                cartTileX,
+                cartTileY,
+                stationDirection,
+                trackLength,
+                hasTracks,
+                hasWallHole
+            )
+        );
         this.Save();
         return true;
     }
@@ -248,6 +295,15 @@ public sealed class StationManager
         MinecartStation? station = this.Find(idOrName);
         if (station is null)
             return false;
+
+        if (!this.environment.Restore(station, out string? restoreError))
+        {
+            this.monitor.Log(
+                restoreError ?? $"Couldn't safely restore the environment for station '{station.Name}'.",
+                LogLevel.Warn
+            );
+            return false;
+        }
 
         this.Data.Stations.Remove(station);
         this.Save();
