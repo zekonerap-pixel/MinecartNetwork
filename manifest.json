@@ -1,0 +1,10 @@
+{
+  "Name": "Minecart Network",
+  "Author": "Sr Zek",
+  "Version": "0.1.0-alpha.1",
+  "Description": "Create named minecart stations and travel through an expandable minecart network.",
+  "UniqueID": "SrZek.MinecartNetwork",
+  "EntryDll": "MinecartNetwork.dll",
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": []
+}
