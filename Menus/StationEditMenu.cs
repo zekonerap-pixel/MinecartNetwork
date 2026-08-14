@@ -127,20 +127,8 @@ public sealed class StationEditMenu : IClickableMenu
             Color.LightGray
         );
 
-        this.DrawButton(
-            b,
-            this.RenameButton,
-            this.helper.Translation.Get("edit.rename"),
-            false,
-            this.IsSelected(0)
-        );
-        this.DrawButton(
-            b,
-            this.CategoryButton,
-            this.helper.Translation.Get("edit.category"),
-            false,
-            this.IsSelected(1)
-        );
+        this.DrawButton(b, this.RenameButton, this.helper.Translation.Get("edit.rename"), false, this.IsSelected(0));
+        this.DrawButton(b, this.CategoryButton, this.helper.Translation.Get("edit.category"), false, this.IsSelected(1));
         this.DrawButton(
             b,
             this.AutoCategoryButton,
@@ -150,13 +138,7 @@ public sealed class StationEditMenu : IClickableMenu
             false,
             this.IsSelected(2)
         );
-        this.DrawButton(
-            b,
-            this.MoveButton,
-            this.helper.Translation.Get("edit.move"),
-            false,
-            this.IsSelected(3)
-        );
+        this.DrawButton(b, this.MoveButton, this.helper.Translation.Get("edit.move"), false, this.IsSelected(3));
         this.DrawButton(
             b,
             this.DeleteButton,
@@ -233,7 +215,10 @@ public sealed class StationEditMenu : IClickableMenu
 
                 bool removed = this.stations.Remove(this.station.Id);
                 Game1.playSound(removed ? "trashcan" : "cancel");
-                Game1.exitActiveMenu();
+                if (removed)
+                    Game1.exitActiveMenu();
+                else
+                    this.confirmDelete = false;
                 return;
         }
     }
