@@ -12,6 +12,7 @@ public sealed class ModEntry : Mod
     private StationManager StationManager = null!;
     private TeleportService TeleportService = null!;
     private PlacementManager PlacementManager = null!;
+    private InteractionManager InteractionManager = null!;
     private MinecartRenderer MinecartRenderer = null!;
     private DebugCommandHandler DebugCommands = null!;
 
@@ -21,6 +22,13 @@ public sealed class ModEntry : Mod
         this.StationManager = new StationManager(helper, this.Monitor);
         this.TeleportService = new TeleportService(this.Monitor, this.Config);
         this.PlacementManager = new PlacementManager(helper, this.Monitor, this.StationManager, this.Config);
+        this.InteractionManager = new InteractionManager(
+            helper,
+            this.Monitor,
+            this.StationManager,
+            this.TeleportService,
+            this.PlacementManager
+        );
         this.MinecartRenderer = new MinecartRenderer(helper, this.StationManager, this.PlacementManager);
         this.DebugCommands = new DebugCommandHandler(
             this.Monitor,
@@ -35,6 +43,7 @@ public sealed class ModEntry : Mod
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
 
         helper.Events.Input.ButtonPressed += this.PlacementManager.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.InteractionManager.OnButtonPressed;
         helper.Events.Display.MenuChanged += this.PlacementManager.OnMenuChanged;
         helper.Events.Display.RenderedWorld += this.MinecartRenderer.OnRenderedWorld;
         helper.Events.Display.RenderedHud += this.MinecartRenderer.OnRenderedHud;
