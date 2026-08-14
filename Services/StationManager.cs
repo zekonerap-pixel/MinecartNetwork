@@ -34,6 +34,17 @@ public sealed class StationManager
 
         this.Data = this.helper.Data.ReadSaveData<MinecartSaveData>(SaveKey) ?? new MinecartSaveData();
         this.Data.Stations ??= new List<MinecartStation>();
+
+        foreach (MinecartStation station in this.Data.Stations)
+        {
+            station.StationDirection = StationGeometry.NormalizeDirection(station.StationDirection);
+            station.TrackLength = Math.Clamp(
+                station.TrackLength,
+                StationGeometry.MinTrackLength,
+                StationGeometry.MaxTrackLength
+            );
+        }
+
         this.monitor.Log($"Loaded {this.Data.Stations.Count} custom minecart station(s).", LogLevel.Debug);
     }
 
@@ -89,10 +100,15 @@ public sealed class StationManager
         int warpTileY,
         bool hasTracks,
         bool hasWallHole,
-        bool useAutomaticCategory = false)
+        bool useAutomaticCategory = false,
+        int stationDirection = 2,
+        int trackLength = 0)
     {
         if (!Context.IsWorldReady)
             throw new InvalidOperationException("A save must be loaded before creating a station.");
+
+        stationDirection = StationGeometry.NormalizeDirection(stationDirection);
+        trackLength = Math.Clamp(trackLength, StationGeometry.MinTrackLength, StationGeometry.MaxTrackLength);
 
         var station = new MinecartStation
         {
@@ -102,9 +118,11 @@ public sealed class StationManager
             LocationName = locationName,
             TileX = warpTileX,
             TileY = warpTileY,
-            FacingDirection = 0,
+            FacingDirection = (stationDirection + 2) % 4,
             VisualTileX = cartTileX,
             VisualTileY = cartTileY,
+            StationDirection = stationDirection,
+            TrackLength = trackLength,
             HasTracks = hasTracks,
             HasWallHole = hasWallHole,
             CreatedByPlayerId = Game1.player.UniqueMultiplayerID
@@ -174,18 +192,25 @@ public sealed class StationManager
         int warpTileX,
         int warpTileY,
         bool hasTracks,
-        bool hasWallHole)
+        bool hasWallHole,
+        int stationDirection,
+        int trackLength)
     {
         MinecartStation? station = this.GetById(id);
         if (station is null || !station.HasPhysicalMinecart)
             return false;
+
+        stationDirection = StationGeometry.NormalizeDirection(stationDirection);
+        trackLength = Math.Clamp(trackLength, StationGeometry.MinTrackLength, StationGeometry.MaxTrackLength);
 
         station.LocationName = locationName;
         station.VisualTileX = cartTileX;
         station.VisualTileY = cartTileY;
         station.TileX = warpTileX;
         station.TileY = warpTileY;
-        station.FacingDirection = 0;
+        station.FacingDirection = (stationDirection + 2) % 4;
+        station.StationDirection = stationDirection;
+        station.TrackLength = trackLength;
         station.HasTracks = hasTracks;
         station.HasWallHole = hasWallHole;
         this.Save();
