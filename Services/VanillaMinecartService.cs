@@ -69,8 +69,69 @@ public sealed class VanillaMinecartService
         }
     }
 
+    /// <summary>
+    /// Get every safe destination reachable through the unified network view.
+    /// The active network and Default network are always considered; other networks are
+    /// federated only when they're unlocked and don't expose an active paid destination.
+    /// Equivalent stops shared by multiple networks are returned only once.
+    /// </summary>
     public IReadOnlyList<VanillaMinecartDestination> GetAvailableDefaultDestinations()
-        => this.GetAvailableDestinations(this.ActiveNetworkId);
+        => this.GetAvailableFederatedDestinations();
+
+    public IReadOnlyList<VanillaMinecartDestination> GetAvailableFederatedDestinations()
+    {
+        var result = new List<VanillaMinecartDestination>();
+        var seenStops = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string networkId in this.GetFederatedNetworkIds())
+        {
+            foreach (VanillaMinecartDestination destination in this.GetAvailableDestinations(networkId))
+            {
+                string stopKey = GetStopKey(destination);
+                if (seenStops.Add(stopKey))
+                    result.Add(destination);
+            }
+        }
+
+        return result;
+    }
+
+    public IReadOnlyList<string> GetFederatedNetworkIds()
+    {
+        var result = new List<string>();
+
+        IEnumerable<string> orderedNetworks = this.GetNetworkIds()
+            .OrderBy(id => id.Equals(this.ActiveNetworkId, StringComparison.OrdinalIgnoreCase) ? 0
+                : id.Equals(DefaultNetworkId, StringComparison.OrdinalIgnoreCase) ? 1
+                : 2)
+            .ThenBy(id => id, StringComparer.OrdinalIgnoreCase);
+
+        foreach (string networkId in orderedNetworks)
+        {
+            if (!this.IsNetworkUnlocked(networkId))
+                continue;
+
+            bool isActive = networkId.Equals(this.ActiveNetworkId, StringComparison.OrdinalIgnoreCase);
+            bool isDefault = networkId.Equals(DefaultNetworkId, StringComparison.OrdinalIgnoreCase);
+
+            // Preserve payment mechanics. The active network keeps the same behavior as before
+            // (its free destinations can still be shown), and Default remains available because
+            // MinecartNetwork mirrors custom stations into it. Foreign paid networks stay isolated
+            // behind their original minecart menu instead of being exposed as free cross-network travel.
+            if (!isActive && !isDefault && this.HasAvailablePricedDestinations(networkId))
+            {
+                this.monitor.Log(
+                    $"Skipping minecart network '{networkId}' from federation because it contains an available priced destination.",
+                    LogLevel.Trace
+                );
+                continue;
+            }
+
+            result.Add(networkId);
+        }
+
+        return result;
+    }
 
     public IReadOnlyList<VanillaMinecartDestination> GetAvailableDestinations(string networkId)
     {
@@ -316,6 +377,16 @@ public sealed class VanillaMinecartService
 
             yield return (key.ToString() ?? "", value);
         }
+    }
+
+    private static string GetStopKey(VanillaMinecartDestination destination)
+    {
+        return string.Join(
+            "|",
+            destination.TargetLocation.Trim(),
+            destination.TargetTileX,
+            destination.TargetTileY
+        );
     }
 
     private string GetFallbackDisplayName(string id, string targetLocation)
