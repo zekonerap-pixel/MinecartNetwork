@@ -14,6 +14,7 @@ public sealed class ModEntry : Mod
 {
     private ModConfig Config = null!;
     private LocationRegionService LocationRegionService = null!;
+    private StationEnvironmentService StationEnvironmentService = null!;
     private StationManager StationManager = null!;
     private VanillaMinecartService VanillaMinecartService = null!;
     private TeleportService TeleportService = null!;
@@ -26,7 +27,13 @@ public sealed class ModEntry : Mod
     {
         this.Config = helper.ReadConfig<ModConfig>();
         this.LocationRegionService = new LocationRegionService(helper);
-        this.StationManager = new StationManager(helper, this.Monitor, this.LocationRegionService);
+        this.StationEnvironmentService = new StationEnvironmentService(this.Monitor);
+        this.StationManager = new StationManager(
+            helper,
+            this.Monitor,
+            this.LocationRegionService,
+            this.StationEnvironmentService
+        );
         this.VanillaMinecartService = new VanillaMinecartService(helper, this.Monitor, this.LocationRegionService);
         this.TeleportService = new TeleportService(this.Monitor, this.Config);
         this.PlacementManager = new PlacementManager(
@@ -143,7 +150,6 @@ public sealed class ModEntry : Mod
     private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
     {
         this.StationManager.Load();
-        this.VanillaMinecartService.SelectNetwork(VanillaMinecartService.DefaultNetworkId);
     }
 
     private void OnSaving(object? sender, SavingEventArgs e)
@@ -155,6 +161,5 @@ public sealed class ModEntry : Mod
     {
         this.PlacementManager.Cancel(silent: true);
         this.StationManager.Clear();
-        this.VanillaMinecartService.SelectNetwork(VanillaMinecartService.DefaultNetworkId);
     }
 }
