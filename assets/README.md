@@ -1,14 +1,14 @@
 # Minecart Network visual assets
 
-Minecart Network can load optional transparent PNG layers for the custom station:
+Minecart Network loads three transparent PNG atlases for custom stations:
 
 - `minecart.png` — the cart itself;
-- `tracks.png` — one repeatable track section;
-- `wall_hole.png` — the mine/tunnel entrance.
+- `tracks.png` — repeatable vertical/horizontal rail sections;
+- `mine_entrance.png` — the mine/tunnel entrance.
 
-## Geometry contract (alpha.10)
+## Geometry contract
 
-The station now follows this logical layout:
+The station follows this logical layout:
 
 `tunnel -> N track tiles -> minecart -> clear arrival tile`
 
@@ -21,16 +21,20 @@ where:
 - the whole station can face up, right, down, or left;
 - track length is configurable from 0 to 8 sections.
 
-## Source sizes
+## Current PolyCarts-derived art
 
-Stardew renders one 16 px source tile as 64 px in world space, so the intended final assets are:
+The current PNGs use pixels taken directly from the PolyCarts sprite sheet and arranged into Minecart Network's directional atlases:
 
-- `minecart.png`: **16 × 16 px** source frame per direction;
-- `tracks.png`: **16 × 16 px** source frame per direction;
-- `wall_hole.png`: approximately **20 × 22 px** per direction, centered on its one-tile logical anchor with visual overhang allowed.
+- `minecart.png`: **128 × 32 px** — four 32 × 32 frames: up, right, down, left;
+- `tracks.png`: **32 × 16 px** — 16 × 16 vertical frame followed by 16 × 16 horizontal frame;
+- `mine_entrance.png`: **192 × 48 px** — four 48 × 48 frames: up, right, down, left.
 
-Directional sprites are not bundled yet. The current alpha uses procedural rendering for unsupported directions and missing files. This is deliberate so geometry can be tested independently from final art.
+The renderer uses integer scaling for crisp pixel art:
 
-The minecart should visually sit on the rails. Rails continue through the minecart tile and disappear into the tunnel opening, matching the intended in-game composition.
+- minecart: 64 × 64 world pixels;
+- tracks: 64 × 64 world pixels per segment;
+- entrance: 96 × 96 world pixels.
 
-Missing files are always supported. Minecart Network falls back independently to procedural rendering, so incomplete art cannot break placement, interaction, travel, or saved stations.
+The minecart visually sits on the rails. Rails continue through the minecart tile and disappear into the tunnel opening.
+
+Missing files remain supported. Minecart Network falls back independently to procedural rendering, so missing artwork cannot break placement, interaction, travel, or saved stations.
