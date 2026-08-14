@@ -71,16 +71,27 @@ public sealed class StationManager
         return station;
     }
 
+    public IReadOnlyList<MinecartStation> FindMatches(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Array.Empty<MinecartStation>();
+
+        string value = query.Trim();
+
+        return this.Data.Stations
+            .Where(station =>
+                station.Id.Equals(value, StringComparison.OrdinalIgnoreCase)
+                || (value.Length >= 4 && station.Id.StartsWith(value, StringComparison.OrdinalIgnoreCase))
+                || station.Name.Equals(value, StringComparison.OrdinalIgnoreCase)
+                || $"{station.Category} {station.Name}".Equals(value, StringComparison.OrdinalIgnoreCase)
+                || $"{station.Name} {station.Category}".Equals(value, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
     public MinecartStation? Find(string idOrName)
     {
-        if (string.IsNullOrWhiteSpace(idOrName))
-            return null;
-
-        string value = idOrName.Trim();
-
-        return this.Data.Stations.FirstOrDefault(station =>
-            station.Id.Equals(value, StringComparison.OrdinalIgnoreCase)
-            || station.Name.Equals(value, StringComparison.OrdinalIgnoreCase));
+        IReadOnlyList<MinecartStation> matches = this.FindMatches(idOrName);
+        return matches.Count == 1 ? matches[0] : null;
     }
 
     public bool Remove(string idOrName)
