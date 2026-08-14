@@ -71,6 +71,40 @@ public sealed class StationManager
         return station;
     }
 
+    public MinecartStation AddPlaced(
+        string name,
+        string category,
+        string locationName,
+        int cartTileX,
+        int cartTileY,
+        int warpTileX,
+        int warpTileY,
+        bool hasTracks,
+        bool hasWallHole)
+    {
+        if (!Context.IsWorldReady)
+            throw new InvalidOperationException("A save must be loaded before creating a station.");
+
+        var station = new MinecartStation
+        {
+            Name = name.Trim(),
+            Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim(),
+            LocationName = locationName,
+            TileX = warpTileX,
+            TileY = warpTileY,
+            FacingDirection = 0,
+            VisualTileX = cartTileX,
+            VisualTileY = cartTileY,
+            HasTracks = hasTracks,
+            HasWallHole = hasWallHole,
+            CreatedByPlayerId = Game1.player.UniqueMultiplayerID
+        };
+
+        this.Data.Stations.Add(station);
+        this.Save();
+        return station;
+    }
+
     public IReadOnlyList<MinecartStation> FindMatches(string query)
     {
         if (string.IsNullOrWhiteSpace(query))
