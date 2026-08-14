@@ -35,6 +35,7 @@ public sealed class ModEntry : Mod
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
 
         helper.Events.Input.ButtonPressed += this.PlacementManager.OnButtonPressed;
+        helper.Events.Display.MenuChanged += this.PlacementManager.OnMenuChanged;
         helper.Events.Display.RenderedWorld += this.MinecartRenderer.OnRenderedWorld;
         helper.Events.Display.RenderedHud += this.MinecartRenderer.OnRenderedHud;
 
