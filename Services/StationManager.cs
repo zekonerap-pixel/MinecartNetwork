@@ -44,7 +44,12 @@ public sealed class StationManager
         this.monitor.Log($"Saved {this.Data.Stations.Count} custom minecart station(s).", LogLevel.Trace);
     }
 
-    public MinecartStation AddAtPlayer(string name, string category, bool hasTracks = true, bool hasWallHole = false)
+    public MinecartStation AddAtPlayer(
+        string name,
+        string category,
+        bool hasTracks = true,
+        bool hasWallHole = false,
+        bool useAutomaticCategory = false)
     {
         if (!Context.IsWorldReady)
             throw new InvalidOperationException("A save must be loaded before creating a station.");
@@ -57,6 +62,7 @@ public sealed class StationManager
         {
             Name = name.Trim(),
             Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim(),
+            UseAutomaticCategory = useAutomaticCategory,
             LocationName = locationName,
             TileX = x,
             TileY = y,
@@ -80,7 +86,8 @@ public sealed class StationManager
         int warpTileX,
         int warpTileY,
         bool hasTracks,
-        bool hasWallHole)
+        bool hasWallHole,
+        bool useAutomaticCategory = false)
     {
         if (!Context.IsWorldReady)
             throw new InvalidOperationException("A save must be loaded before creating a station.");
@@ -89,6 +96,7 @@ public sealed class StationManager
         {
             Name = name.Trim(),
             Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim(),
+            UseAutomaticCategory = useAutomaticCategory,
             LocationName = locationName,
             TileX = warpTileX,
             TileY = warpTileY,
@@ -107,13 +115,24 @@ public sealed class StationManager
 
     public bool UpdateDetails(string id, string name, string category)
     {
-        MinecartStation? station = this.Data.Stations.FirstOrDefault(candidate =>
-            candidate.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        MinecartStation? station = this.GetById(id);
         if (station is null)
             return false;
 
         station.Name = string.IsNullOrWhiteSpace(name) ? station.Name : name.Trim();
         station.Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim();
+        station.UseAutomaticCategory = false;
+        this.Save();
+        return true;
+    }
+
+    public bool SetAutomaticCategory(string id, bool enabled)
+    {
+        MinecartStation? station = this.GetById(id);
+        if (station is null)
+            return false;
+
+        station.UseAutomaticCategory = enabled;
         this.Save();
         return true;
     }
@@ -128,8 +147,7 @@ public sealed class StationManager
         bool hasTracks,
         bool hasWallHole)
     {
-        MinecartStation? station = this.Data.Stations.FirstOrDefault(candidate =>
-            candidate.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        MinecartStation? station = this.GetById(id);
         if (station is null || !station.HasPhysicalMinecart)
             return false;
 
@@ -182,5 +200,11 @@ public sealed class StationManager
     public void Clear()
     {
         this.Data = new MinecartSaveData();
+    }
+
+    private MinecartStation? GetById(string id)
+    {
+        return this.Data.Stations.FirstOrDefault(candidate =>
+            candidate.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
     }
 }
