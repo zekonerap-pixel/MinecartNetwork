@@ -47,6 +47,8 @@ The current cart artwork is deliberately procedural placeholder pixel art so pla
 
 ## Next milestone
 
+- make the entire visible minecart surface interactive, instead of requiring interaction with a specific faced tile;
+- change the mouse cursor to the game's action cursor while hovering anywhere over an interactive minecart;
 - improve menu visuals, hover states, and controller navigation;
 - automatically map vanilla locations into friendly broad regions;
 - integrate vanilla minecart destinations into the same menu;
