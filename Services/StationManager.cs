@@ -14,6 +14,7 @@ public sealed class StationManager
     private readonly StationEnvironmentService environment;
 
     public MinecartSaveData Data { get; private set; } = new();
+    public event Action? Changed;
 
     public StationManager(
         IModHelper helper,
@@ -53,6 +54,7 @@ public sealed class StationManager
         }
 
         this.monitor.Log($"Loaded {this.Data.Stations.Count} custom minecart station(s).", LogLevel.Debug);
+        this.Changed?.Invoke();
     }
 
     public void Save()
@@ -62,6 +64,7 @@ public sealed class StationManager
 
         this.helper.Data.WriteSaveData(SaveKey, this.Data);
         this.monitor.Log($"Saved {this.Data.Stations.Count} custom minecart station(s).", LogLevel.Trace);
+        this.Changed?.Invoke();
     }
 
     public MinecartStation AddAtPlayer(
@@ -313,6 +316,7 @@ public sealed class StationManager
     public void Clear()
     {
         this.Data = new MinecartSaveData();
+        this.Changed?.Invoke();
     }
 
     private MinecartStation? GetById(string id)
