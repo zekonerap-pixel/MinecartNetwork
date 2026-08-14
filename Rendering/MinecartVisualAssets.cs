@@ -1,7 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
-using StardewValley;
 
 namespace MinecartNetwork.Rendering;
 
@@ -17,7 +16,7 @@ public sealed class MinecartVisualAssets
     // Runtime track atlas contains vertical then horizontal 16x16 frames.
     public const int TrackFrameSize = 16;
 
-    private const string PolyCartsSheetDataPath = "assets/polycarts_spring.png.b64";
+    private const string PolyCartsSheetPath = "assets/polycarts_spring.png";
 
     private readonly IModHelper helper;
 
@@ -99,32 +98,14 @@ public sealed class MinecartVisualAssets
         if (sourceSheet is null)
             return;
 
-        try
-        {
-            this.BuildRuntimeAtlases(sourceSheet);
-        }
-        finally
-        {
-            sourceSheet.Dispose();
-        }
+        this.BuildRuntimeAtlases(sourceSheet);
     }
 
     private Texture2D? TryLoadPolyCartsSheet()
     {
-        string diskPath = Path.Combine(
-            this.helper.DirectoryPath,
-            PolyCartsSheetDataPath.Replace('/', Path.DirectorySeparatorChar)
-        );
-
-        if (!File.Exists(diskPath))
-            return null;
-
         try
         {
-            string encoded = File.ReadAllText(diskPath);
-            byte[] pngData = Convert.FromBase64String(encoded);
-            using var stream = new MemoryStream(pngData, writable: false);
-            return Texture2D.FromStream(Game1.graphics.GraphicsDevice, stream);
+            return this.helper.ModContent.Load<Texture2D>(PolyCartsSheetPath);
         }
         catch
         {
@@ -183,7 +164,7 @@ public sealed class MinecartVisualAssets
         this.minecart = new Texture2D(graphics, MinecartFrameWidth * 4, MinecartFrameHeight);
         this.minecart.SetData(cartPixels);
 
-        // Exact first vertical/horizontal track tiles from PolyCarts.
+        // Exact vertical/horizontal track tiles from PolyCarts.
         Color[] trackPixels = CreateTransparentPixels(TrackFrameSize * 2, TrackFrameSize);
         Blit(
             sourcePixels,
