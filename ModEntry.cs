@@ -108,6 +108,7 @@ public sealed class ModEntry : Mod
             this.StationManager,
             this.VanillaMinecartService,
             this.TeleportService,
+            this.PlacementManager,
             originName,
             excludedVanillaDestinationId: excludeDestinationId
         );
