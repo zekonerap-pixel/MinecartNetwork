@@ -2,6 +2,7 @@ namespace MinecartNetwork.Models;
 
 public sealed class VanillaMinecartDestination
 {
+    public string NetworkId { get; init; } = "Default";
     public string Id { get; init; } = "";
     public string Name { get; init; } = "";
     public string Category { get; init; } = "";
