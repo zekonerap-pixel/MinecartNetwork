@@ -24,33 +24,24 @@ public static class StationGeometry
         };
     }
 
+    /// <summary>
+    /// Get the logical minecart footprint. The cart always occupies exactly one tile;
+    /// its artwork may overhang that tile slightly without affecting placement/collision.
+    /// </summary>
     public static IReadOnlyList<Point> GetCartTiles(int tileX, int tileY, int direction)
-    {
-        direction = NormalizeDirection(direction);
+        => new[] { new Point(tileX, tileY) };
 
-        return direction is 0 or 2
-            ? new[] { new Point(tileX, tileY), new Point(tileX + 1, tileY) }
-            : new[] { new Point(tileX, tileY), new Point(tileX, tileY + 1) };
-    }
-
+    /// <summary>Get the only tile which must remain clear: directly in front of the cart.</summary>
     public static Point GetArrivalTile(int tileX, int tileY, int direction)
     {
-        direction = NormalizeDirection(direction);
-
-        return direction switch
-        {
-            0 => new Point(tileX, tileY - 1),
-            1 => new Point(tileX + 1, tileY),
-            2 => new Point(tileX, tileY + 1),
-            3 => new Point(tileX - 1, tileY),
-            _ => new Point(tileX, tileY + 1)
-        };
+        Point forward = GetForwardVector(direction);
+        return new Point(tileX + forward.X, tileY + forward.Y);
     }
 
+    /// <summary>Get the one-tile-wide rail corridor between tunnel and cart.</summary>
     public static IReadOnlyList<Point> GetTrackTiles(int tileX, int tileY, int direction, int trackLength)
     {
         var result = new List<Point>();
-        direction = NormalizeDirection(direction);
         trackLength = Math.Clamp(trackLength, MinTrackLength, MaxTrackLength);
 
         Point forward = GetForwardVector(direction);
@@ -58,28 +49,37 @@ public static class StationGeometry
 
         for (int segment = 1; segment <= trackLength; segment++)
         {
-            int anchorX = tileX + back.X * segment;
-            int anchorY = tileY + back.Y * segment;
-            result.AddRange(GetCrossSectionTiles(anchorX, anchorY, direction));
+            result.Add(new Point(
+                tileX + back.X * segment,
+                tileY + back.Y * segment
+            ));
         }
 
         return result;
     }
 
+    /// <summary>Get the logical tunnel/portal tile at the back of the rail corridor.</summary>
     public static IReadOnlyList<Point> GetHoleTiles(int tileX, int tileY, int direction, int trackLength)
     {
-        direction = NormalizeDirection(direction);
         trackLength = Math.Clamp(trackLength, MinTrackLength, MaxTrackLength);
 
         Point forward = GetForwardVector(direction);
         Point back = new(-forward.X, -forward.Y);
         int offset = trackLength + 1;
-        int anchorX = tileX + back.X * offset;
-        int anchorY = tileY + back.Y * offset;
 
-        return GetCrossSectionTiles(anchorX, anchorY, direction);
+        return new[]
+        {
+            new Point(
+                tileX + back.X * offset,
+                tileY + back.Y * offset
+            )
+        };
     }
 
+    /// <summary>
+    /// Get the station construction corridor. This is intentionally one tile wide:
+    /// tunnel -> N rail tiles -> cart. The arrival tile is excluded and validated separately.
+    /// </summary>
     public static IReadOnlyList<Point> GetConstructionTiles(
         int tileX,
         int tileY,
@@ -107,21 +107,8 @@ public static class StationGeometry
     }
 
     public static Rectangle GetCartPixelBounds(int tileX, int tileY, int direction)
-    {
-        direction = NormalizeDirection(direction);
-
-        return direction is 0 or 2
-            ? new Rectangle(tileX * Game1.tileSize, tileY * Game1.tileSize, Game1.tileSize * 2, Game1.tileSize)
-            : new Rectangle(tileX * Game1.tileSize, tileY * Game1.tileSize, Game1.tileSize, Game1.tileSize * 2);
-    }
+        => new(tileX * Game1.tileSize, tileY * Game1.tileSize, Game1.tileSize, Game1.tileSize);
 
     public static Rectangle GetTilePixelBounds(Point tile)
         => new(tile.X * Game1.tileSize, tile.Y * Game1.tileSize, Game1.tileSize, Game1.tileSize);
-
-    private static IReadOnlyList<Point> GetCrossSectionTiles(int anchorX, int anchorY, int direction)
-    {
-        return direction is 0 or 2
-            ? new[] { new Point(anchorX, anchorY), new Point(anchorX + 1, anchorY) }
-            : new[] { new Point(anchorX, anchorY), new Point(anchorX, anchorY + 1) };
-    }
 }
