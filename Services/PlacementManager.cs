@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using MinecartNetwork.Models;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
@@ -23,6 +24,8 @@ public sealed class PlacementManager
     public bool PendingUsesAutomaticCategory { get; private set; }
     public bool HasTracks { get; private set; } = true;
     public bool HasWallHole { get; private set; }
+    public int StationDirection { get; private set; } = 2;
+    public int TrackLength { get; private set; } = StationGeometry.DefaultTrackLength;
 
     public PlacementManager(
         IModHelper helper,
@@ -51,11 +54,13 @@ public sealed class PlacementManager
             : string.IsNullOrWhiteSpace(category) ? this.config.DefaultCategory : category.Trim();
         this.HasTracks = true;
         this.HasWallHole = false;
+        this.StationDirection = 2;
+        this.TrackLength = StationGeometry.DefaultTrackLength;
         this.IsPlacing = true;
 
         string categoryMode = this.PendingUsesAutomaticCategory ? $"auto: {this.PendingCategory}" : this.PendingCategory;
         this.monitor.Log(
-            $"Placement started for '{this.PendingName}' ({categoryMode}). Left click places; T toggles tracks; H toggles wall hole; right click/Escape cancels. Movement remains enabled.",
+            $"Placement started for '{this.PendingName}' ({categoryMode}). Left click places; R rotates; Q/E or controller shoulders change track length; T toggles tracks; H toggles wall hole; right click/Escape cancels.",
             LogLevel.Info
         );
         return true;
@@ -80,10 +85,16 @@ public sealed class PlacementManager
             : station.Category;
         this.HasTracks = station.HasTracks;
         this.HasWallHole = station.HasWallHole;
+        this.StationDirection = StationGeometry.NormalizeDirection(station.StationDirection);
+        this.TrackLength = Math.Clamp(
+            station.TrackLength,
+            StationGeometry.MinTrackLength,
+            StationGeometry.MaxTrackLength
+        );
         this.IsPlacing = true;
 
         this.monitor.Log(
-            $"Moving station '{station.Name}'. Left click confirms the new position; right click/Escape cancels without changing the original station.",
+            $"Moving station '{station.Name}'. Its direction and track length can be changed before confirming; cancelling keeps the original station unchanged.",
             LogLevel.Info
         );
         return true;
@@ -119,6 +130,27 @@ public sealed class PlacementManager
             return;
         }
 
+        if (e.Button == SButton.R || (e.Button.TryGetController(out Buttons controller) && controller == Buttons.X))
+        {
+            this.helper.Input.Suppress(e.Button);
+            this.RotateClockwise();
+            return;
+        }
+
+        if (e.Button == SButton.Q || (e.Button.TryGetController(out controller) && controller == Buttons.LeftShoulder))
+        {
+            this.helper.Input.Suppress(e.Button);
+            this.AdjustTrackLength(-1);
+            return;
+        }
+
+        if (e.Button == SButton.E || (e.Button.TryGetController(out controller) && controller == Buttons.RightShoulder))
+        {
+            this.helper.Input.Suppress(e.Button);
+            this.AdjustTrackLength(1);
+            return;
+        }
+
         if (e.Button == SButton.T)
         {
             this.helper.Input.Suppress(e.Button);
@@ -148,7 +180,7 @@ public sealed class PlacementManager
             return;
         }
 
-        Point warpTile = new(tile.X, tile.Y + 1);
+        Point warpTile = StationGeometry.GetArrivalTile(tile.X, tile.Y, this.StationDirection);
 
         if (this.IsMoving)
         {
@@ -161,7 +193,9 @@ public sealed class PlacementManager
                 warpTile.X,
                 warpTile.Y,
                 this.HasTracks,
-                this.HasWallHole
+                this.HasWallHole,
+                this.StationDirection,
+                this.TrackLength
             );
 
             if (!moved)
@@ -177,7 +211,7 @@ public sealed class PlacementManager
                 : this.PendingCategory;
             Game1.playSound("coin");
             this.monitor.Log(
-                $"Moved station '{this.PendingName}' to {Game1.currentLocation.NameOrUniqueName} {tile.X},{tile.Y}; arrival tile {warpTile.X},{warpTile.Y}; category {effectiveCategory}.",
+                $"Moved station '{this.PendingName}' to {Game1.currentLocation.NameOrUniqueName} {tile.X},{tile.Y}; arrival {warpTile.X},{warpTile.Y}; direction {this.StationDirection}; tracks {this.TrackLength}; category {effectiveCategory}.",
                 LogLevel.Info
             );
             this.IsPlacing = false;
@@ -199,12 +233,14 @@ public sealed class PlacementManager
             warpTile.Y,
             this.HasTracks,
             this.HasWallHole,
-            useAutomaticCategory: this.PendingUsesAutomaticCategory
+            useAutomaticCategory: this.PendingUsesAutomaticCategory,
+            stationDirection: this.StationDirection,
+            trackLength: this.TrackLength
         );
 
         Game1.playSound("coin");
         this.monitor.Log(
-            $"Placed station '{station.Name}' [{station.Id[..8]}] at {station.LocationName} {tile.X},{tile.Y}; arrival tile {warpTile.X},{warpTile.Y}; category {storedCategory}{(station.UseAutomaticCategory ? " (auto)" : "")}.",
+            $"Placed station '{station.Name}' [{station.Id[..8]}] at {station.LocationName} {tile.X},{tile.Y}; arrival {warpTile.X},{warpTile.Y}; direction {station.StationDirection}; tracks {station.TrackLength}; category {storedCategory}{(station.UseAutomaticCategory ? " (auto)" : "")}.",
             LogLevel.Info
         );
         this.IsPlacing = false;
@@ -235,58 +271,48 @@ public sealed class PlacementManager
     {
         reason = "";
 
-        Point[] requiredTiles =
-        {
-            new(tileX, tileY),
-            new(tileX + 1, tileY),
-            new(tileX, tileY + 1)
-        };
+        IReadOnlyList<Point> constructionTiles = StationGeometry.GetConstructionTiles(
+            tileX,
+            tileY,
+            this.StationDirection,
+            this.TrackLength,
+            this.HasTracks,
+            this.HasWallHole
+        );
+        Point arrivalTile = StationGeometry.GetArrivalTile(tileX, tileY, this.StationDirection);
 
         int width = location.Map.Layers[0].LayerWidth;
         int height = location.Map.Layers[0].LayerHeight;
 
-        foreach (Point tile in requiredTiles)
+        foreach (Point tile in constructionTiles.Append(arrivalTile))
         {
             if (tile.X < 0 || tile.Y < 0 || tile.X >= width || tile.Y >= height)
             {
-                reason = "the station would be outside the map";
-                return false;
-            }
-
-            Vector2 key = new(tile.X, tile.Y);
-
-            if (location.objects.ContainsKey(key))
-            {
-                reason = "an object occupies one of the required tiles";
-                return false;
-            }
-
-            if (location.terrainFeatures.ContainsKey(key))
-            {
-                reason = "a terrain feature occupies one of the required tiles";
-                return false;
-            }
-
-            if (Game1.player.TilePoint == tile)
-            {
-                reason = "the player is standing on one of the required tiles";
+                reason = "the station would extend outside the map";
                 return false;
             }
         }
 
-        var buildingsLayer = location.Map.GetLayer("Buildings");
-        if (buildingsLayer is not null)
+        // The construction corridor deliberately ignores map walls, objects and terrain features.
+        // Only the arrival tile must remain genuinely open for the farmer.
+        Vector2 arrivalVector = new(arrivalTile.X, arrivalTile.Y);
+        if (location.IsTileOccupiedBy(
+                arrivalVector,
+                CollisionMask.Buildings
+                    | CollisionMask.Furniture
+                    | CollisionMask.Objects
+                    | CollisionMask.Characters
+                    | CollisionMask.TerrainFeatures,
+                ignorePassables: CollisionMask.Flooring)
+            || !location.isTilePassable(
+                new xTile.Dimensions.Location(arrivalTile.X, arrivalTile.Y),
+                Game1.viewport))
         {
-            foreach (Point tile in requiredTiles)
-            {
-                if (buildingsLayer.Tiles[tile.X, tile.Y] is not null)
-                {
-                    reason = "the map has a building or wall tile there";
-                    return false;
-                }
-            }
+            reason = "the arrival tile at the end of the minecart must be clear and walkable";
+            return false;
         }
 
+        HashSet<Point> candidateBody = constructionTiles.ToHashSet();
         foreach (MinecartStation station in this.stations.Stations)
         {
             if (!station.HasPhysicalMinecart
@@ -294,13 +320,24 @@ public sealed class PlacementManager
                 || !station.LocationName.Equals(location.NameOrUniqueName, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            int existingX = station.VisualTileX!.Value;
-            int existingY = station.VisualTileY!.Value;
+            HashSet<Point> existingBody = StationGeometry.GetConstructionTiles(
+                station.VisualTileX!.Value,
+                station.VisualTileY!.Value,
+                station.StationDirection,
+                station.TrackLength,
+                station.HasTracks,
+                station.HasWallHole
+            ).ToHashSet();
+            Point existingArrival = StationGeometry.GetArrivalTile(
+                station.VisualTileX.Value,
+                station.VisualTileY.Value,
+                station.StationDirection
+            );
 
-            bool overlaps = tileY == existingY
-                && (tileX == existingX || tileX == existingX + 1 || tileX + 1 == existingX);
-
-            if (overlaps)
+            if (candidateBody.Overlaps(existingBody)
+                || candidateBody.Contains(existingArrival)
+                || existingBody.Contains(arrivalTile)
+                || existingArrival == arrivalTile)
             {
                 reason = $"it overlaps station '{station.Name}'";
                 return false;
@@ -308,6 +345,40 @@ public sealed class PlacementManager
         }
 
         return true;
+    }
+
+    private void RotateClockwise()
+    {
+        this.StationDirection = (this.StationDirection + 1) % 4;
+        this.monitor.Log($"Station direction: {this.GetDirectionName(this.StationDirection)}.", LogLevel.Info);
+        Game1.playSound("shwip");
+    }
+
+    private void AdjustTrackLength(int delta)
+    {
+        int next = Math.Clamp(
+            this.TrackLength + delta,
+            StationGeometry.MinTrackLength,
+            StationGeometry.MaxTrackLength
+        );
+        if (next == this.TrackLength)
+            return;
+
+        this.TrackLength = next;
+        this.monitor.Log($"Track sections between tunnel and minecart: {this.TrackLength}.", LogLevel.Info);
+        Game1.playSound("shiny4");
+    }
+
+    private string GetDirectionName(int direction)
+    {
+        return StationGeometry.NormalizeDirection(direction) switch
+        {
+            0 => "up",
+            1 => "right",
+            2 => "down",
+            3 => "left",
+            _ => "down"
+        };
     }
 
     private bool CanBeginPlacement()
