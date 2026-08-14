@@ -48,7 +48,7 @@ public sealed class PlacementManager
         this.IsPlacing = true;
 
         this.monitor.Log(
-            $"Placement started for '{this.PendingName}' ({this.PendingCategory}). Left click places; T toggles tracks; H toggles wall hole; right click/Escape cancels.",
+            $"Placement started for '{this.PendingName}' ({this.PendingCategory}). Left click places; T toggles tracks; H toggles wall hole; right click/Escape cancels. Movement remains enabled.",
             LogLevel.Info
         );
         return true;
@@ -69,19 +69,18 @@ public sealed class PlacementManager
         if (!this.IsPlacing || !Context.IsWorldReady)
             return;
 
-        // Placement mode is modal. Suppress every button before handling it so
-        // Stardew Valley can't also open menus, use tools, change hotbar slots,
-        // or trigger another action while the placement overlay is active.
-        this.helper.Input.Suppress(e.Button);
-
+        // Only consume Minecart Network's own placement controls. Other input,
+        // especially movement, must continue to reach the game normally.
         if (e.Button is SButton.Escape or SButton.MouseRight or SButton.ControllerB)
         {
+            this.helper.Input.Suppress(e.Button);
             this.Cancel();
             return;
         }
 
         if (e.Button == SButton.T)
         {
+            this.helper.Input.Suppress(e.Button);
             this.HasTracks = !this.HasTracks;
             this.monitor.Log($"Tracks: {(this.HasTracks ? "ON" : "OFF")}.", LogLevel.Info);
             return;
@@ -89,6 +88,7 @@ public sealed class PlacementManager
 
         if (e.Button == SButton.H)
         {
+            this.helper.Input.Suppress(e.Button);
             this.HasWallHole = !this.HasWallHole;
             this.monitor.Log($"Wall hole: {(this.HasWallHole ? "ON" : "OFF")}.", LogLevel.Info);
             return;
@@ -96,6 +96,8 @@ public sealed class PlacementManager
 
         if (e.Button is not (SButton.MouseLeft or SButton.ControllerA))
             return;
+
+        this.helper.Input.Suppress(e.Button);
 
         Point tile = this.GetPreviewTile();
         if (!this.CanPlaceAt(Game1.currentLocation, tile.X, tile.Y, out string reason))
@@ -124,6 +126,24 @@ public sealed class PlacementManager
             LogLevel.Info
         );
         this.IsPlacing = false;
+    }
+
+    public void OnMenuChanged(object? sender, MenuChangedEventArgs e)
+    {
+        if (!this.IsPlacing || e.NewMenu is null)
+            return;
+
+        // Input suppression stops the vanilla game from handling a button, but
+        // SMAPI intentionally doesn't prevent other mods from handling the same
+        // input. If any menu still opens while placement is active, close it.
+        if (Game1.activeClickableMenu is not null)
+        {
+            this.monitor.Log(
+                $"Blocked menu '{e.NewMenu.GetType().Name}' while minecart placement is active.",
+                LogLevel.Trace
+            );
+            Game1.exitActiveMenu();
+        }
     }
 
     public Point GetPreviewTile()
