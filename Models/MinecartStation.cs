@@ -6,6 +6,7 @@ public sealed class MinecartStation
     public string Name { get; set; } = "Minecart";
     public string LocationName { get; set; } = "";
     public string Category { get; set; } = "Other";
+    public bool UseAutomaticCategory { get; set; }
 
     public int TileX { get; set; }
     public int TileY { get; set; }
