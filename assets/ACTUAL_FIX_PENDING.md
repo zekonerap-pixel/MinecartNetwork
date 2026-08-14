@@ -1,0 +1,1 @@
+The current simplified PNGs are being replaced by detailed sprites. This marker is temporary and will be removed with the binary replacement commit.
