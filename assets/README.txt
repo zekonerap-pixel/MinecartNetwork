@@ -1,1 +1,0 @@
-Minecart Network visual assets.
