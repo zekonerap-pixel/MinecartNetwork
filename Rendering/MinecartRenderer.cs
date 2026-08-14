@@ -262,10 +262,10 @@ public sealed class MinecartRenderer
         int openingX = opensRight ? bounds.X + 10 : bounds.X - 2;
         int darkX = opensRight ? bounds.X + 15 : bounds.X - 1;
 
-        Rectangle outerOpening = new(openingX, centerY - 23, 58, 46);
-        Rectangle innerOpening = new(darkX, centerY - 17, 49, 34);
-        this.Fill(batch, outerOpening, shadow);
-        this.Fill(batch, innerOpening, deepShadow);
+        Rectangle sideOuterOpening = new(openingX, centerY - 23, 58, 46);
+        Rectangle sideInnerOpening = new(darkX, centerY - 17, 49, 34);
+        this.Fill(batch, sideOuterOpening, shadow);
+        this.Fill(batch, sideInnerOpening, deepShadow);
 
         int rearShadowX = opensRight ? backX + 11 : backX - 8;
         this.Fill(batch, new Rectangle(rearShadowX, centerY - 16, 10, 32), rockShadow);
@@ -400,46 +400,46 @@ public sealed class MinecartRenderer
         }
 
         bool frontAtRight = normalized == 1;
-        int centerY = bounds.Center.Y;
-        int centerX = bounds.Center.X;
+        int sideCenterY = bounds.Center.Y;
+        int sideCenterX = bounds.Center.X;
 
-        Rectangle body = new(centerX - 24, centerY - 14, 48, 28);
-        Rectangle lowerBody = new(body.X + 2, body.Y + 5, body.Width - 4, body.Height - 5);
-        Rectangle rim = new(body.X - 2, body.Y - 5, body.Width + 4, 9);
+        Rectangle sideBody = new(sideCenterX - 24, sideCenterY - 14, 48, 28);
+        Rectangle sideLowerBody = new(sideBody.X + 2, sideBody.Y + 5, sideBody.Width - 4, sideBody.Height - 5);
+        Rectangle sideRim = new(sideBody.X - 2, sideBody.Y - 5, sideBody.Width + 4, 9);
 
-        this.Fill(batch, new Rectangle(body.X + 4, body.Bottom - 1, body.Width - 8, 7), deepest);
+        this.Fill(batch, new Rectangle(sideBody.X + 4, sideBody.Bottom - 1, sideBody.Width - 8, 7), deepest);
 
-        this.Fill(batch, new Rectangle(body.X + 3, body.Y, body.Width - 6, body.Height), outline);
-        this.Fill(batch, new Rectangle(body.X, body.Y + 5, body.Width, body.Height - 10), outline);
-        this.Fill(batch, new Rectangle(lowerBody.X + 3, lowerBody.Y + 2, lowerBody.Width - 6, lowerBody.Height - 4), wood);
-        this.Fill(batch, new Rectangle(lowerBody.X + 1, lowerBody.Y + 5, 4, lowerBody.Height - 8), woodDark);
-        this.Fill(batch, new Rectangle(lowerBody.Right - 5, lowerBody.Y + 5, 4, lowerBody.Height - 8), woodDark);
+        this.Fill(batch, new Rectangle(sideBody.X + 3, sideBody.Y, sideBody.Width - 6, sideBody.Height), outline);
+        this.Fill(batch, new Rectangle(sideBody.X, sideBody.Y + 5, sideBody.Width, sideBody.Height - 10), outline);
+        this.Fill(batch, new Rectangle(sideLowerBody.X + 3, sideLowerBody.Y + 2, sideLowerBody.Width - 6, sideLowerBody.Height - 4), wood);
+        this.Fill(batch, new Rectangle(sideLowerBody.X + 1, sideLowerBody.Y + 5, 4, sideLowerBody.Height - 8), woodDark);
+        this.Fill(batch, new Rectangle(sideLowerBody.Right - 5, sideLowerBody.Y + 5, 4, sideLowerBody.Height - 8), woodDark);
 
-        this.Fill(batch, rim, outline);
-        this.Fill(batch, new Rectangle(rim.X + 3, rim.Y + 2, rim.Width - 6, 4), metal);
-        this.Fill(batch, new Rectangle(rim.X + 5, rim.Y + 1, rim.Width - 10, 1), metalLight);
+        this.Fill(batch, sideRim, outline);
+        this.Fill(batch, new Rectangle(sideRim.X + 3, sideRim.Y + 2, sideRim.Width - 6, 4), metal);
+        this.Fill(batch, new Rectangle(sideRim.X + 5, sideRim.Y + 1, sideRim.Width - 10, 1), metalLight);
 
-        Rectangle cavity = new(body.X + 7, body.Y + 2, body.Width - 14, 10);
-        this.Fill(batch, cavity, deepest);
-        this.Fill(batch, new Rectangle(cavity.X + 3, cavity.Y + 2, cavity.Width - 6, 2), woodDark);
+        Rectangle sideCavity = new(sideBody.X + 7, sideBody.Y + 2, sideBody.Width - 14, 10);
+        this.Fill(batch, sideCavity, deepest);
+        this.Fill(batch, new Rectangle(sideCavity.X + 3, sideCavity.Y + 2, sideCavity.Width - 6, 2), woodDark);
 
-        this.Fill(batch, new Rectangle(body.X + 5, body.Y + 14, body.Width - 10, 8), woodDark);
-        this.Fill(batch, new Rectangle(body.X + 7, body.Y + 15, body.Width - 14, 4), wood);
-        this.Fill(batch, new Rectangle(body.X + 9, body.Y + 15, body.Width - 18, 2), woodLight);
+        this.Fill(batch, new Rectangle(sideBody.X + 5, sideBody.Y + 14, sideBody.Width - 10, 8), woodDark);
+        this.Fill(batch, new Rectangle(sideBody.X + 7, sideBody.Y + 15, sideBody.Width - 14, 4), wood);
+        this.Fill(batch, new Rectangle(sideBody.X + 9, sideBody.Y + 15, sideBody.Width - 18, 2), woodLight);
 
-        int frontX = frontAtRight ? body.Right - 8 : body.X;
-        this.Fill(batch, new Rectangle(frontX, body.Y + 6, 8, body.Height - 12), metalDark);
-        this.Fill(batch, new Rectangle(frontAtRight ? frontX + 1 : frontX + 4, body.Y + 8, 3, body.Height - 16), metal);
+        int frontX = frontAtRight ? sideBody.Right - 8 : sideBody.X;
+        this.Fill(batch, new Rectangle(frontX, sideBody.Y + 6, 8, sideBody.Height - 12), metalDark);
+        this.Fill(batch, new Rectangle(frontAtRight ? frontX + 1 : frontX + 4, sideBody.Y + 8, 3, sideBody.Height - 16), metal);
 
-        int wheelY = body.Bottom - 1;
-        int wheel1X = body.X + 8;
-        int wheel2X = body.Right - 16;
+        int sideWheelY = sideBody.Bottom - 1;
+        int wheel1X = sideBody.X + 8;
+        int wheel2X = sideBody.Right - 16;
 
-        this.Fill(batch, new Rectangle(wheel1X, wheelY, 10, 8), outline);
-        this.Fill(batch, new Rectangle(wheel2X, wheelY, 10, 8), outline);
-        this.Fill(batch, new Rectangle(wheel1X + 3, wheelY + 2, 5, 5), metal);
-        this.Fill(batch, new Rectangle(wheel2X + 2, wheelY + 2, 5, 5), metal);
-        this.Fill(batch, new Rectangle(wheel1X + 7, wheelY + 4, wheel2X - wheel1X - 4, 3), metalDark);
+        this.Fill(batch, new Rectangle(wheel1X, sideWheelY, 10, 8), outline);
+        this.Fill(batch, new Rectangle(wheel2X, sideWheelY, 10, 8), outline);
+        this.Fill(batch, new Rectangle(wheel1X + 3, sideWheelY + 2, 5, 5), metal);
+        this.Fill(batch, new Rectangle(wheel2X + 2, sideWheelY + 2, 5, 5), metal);
+        this.Fill(batch, new Rectangle(wheel1X + 7, sideWheelY + 4, wheel2X - wheel1X - 4, 3), metalDark);
     }
 
     private void DrawPlacementFootprint(SpriteBatch batch, int tileX, int tileY, bool valid)
