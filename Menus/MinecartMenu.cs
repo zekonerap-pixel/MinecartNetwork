@@ -319,30 +319,31 @@ public sealed class MinecartMenu : IClickableMenu
     {
         var result = new List<MenuDestination>();
 
-        foreach (MinecartStation station in this.stations.Stations)
-        {
-            if (!station.IsEnabled
-                || (!string.IsNullOrEmpty(this.excludedCustomStationId)
-                    && station.Id.Equals(this.excludedCustomStationId, StringComparison.OrdinalIgnoreCase)))
-                continue;
-
-            result.Add(new MenuDestination(
-                station.Name,
-                this.regions.GetStationCategory(station),
-                station,
-                null
-            ));
-        }
-
+        // Data/Minecarts is the single transport source. Our custom stations are mirrored
+        // into that asset by MinecartDataSyncService, so vanilla, content packs, other mods,
+        // and MinecartNetwork stations all flow through this same path.
         foreach (VanillaMinecartDestination destination in this.vanillaMinecarts.GetAvailableDefaultDestinations())
         {
             if (!string.IsNullOrEmpty(this.excludedVanillaDestinationId)
                 && destination.Id.Equals(this.excludedVanillaDestinationId, StringComparison.OrdinalIgnoreCase))
                 continue;
 
+            string category = destination.Category;
+
+            // Categories are MinecartNetwork UI metadata rather than transport data. When a
+            // native destination is one of our mirrored stations, preserve its manual/automatic
+            // category from StationManager while still taking the destination itself from Data/Minecarts.
+            if (destination.IsCustomStation)
+            {
+                MinecartStation? station = this.stations.Stations.FirstOrDefault(candidate =>
+                    candidate.Id.Equals(destination.CustomStationId, StringComparison.OrdinalIgnoreCase));
+                if (station is not null)
+                    category = this.regions.GetStationCategory(station);
+            }
+
             result.Add(new MenuDestination(
                 destination.Name,
-                destination.Category,
+                category,
                 null,
                 destination
             ));
