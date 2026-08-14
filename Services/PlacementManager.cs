@@ -23,7 +23,7 @@ public sealed class PlacementManager
     public string PendingCategory { get; private set; } = "";
     public bool PendingUsesAutomaticCategory { get; private set; }
     public bool HasTracks { get; private set; } = true;
-    public bool HasWallHole { get; private set; }
+    public bool HasWallHole { get; private set; } = true;
     public int StationDirection { get; private set; } = 2;
     public int TrackLength { get; private set; } = StationGeometry.DefaultTrackLength;
 
@@ -52,15 +52,18 @@ public sealed class PlacementManager
         this.PendingCategory = this.PendingUsesAutomaticCategory
             ? this.regions.GetCategoryForLocation(Game1.currentLocation.NameOrUniqueName)
             : string.IsNullOrWhiteSpace(category) ? this.config.DefaultCategory : category.Trim();
+
+        // Default layout mirrors a believable mine station:
+        // entrance -> two one-tile rail sections -> one-tile minecart -> clear arrival tile.
         this.HasTracks = true;
-        this.HasWallHole = false;
+        this.HasWallHole = true;
         this.StationDirection = 2;
         this.TrackLength = StationGeometry.DefaultTrackLength;
         this.IsPlacing = true;
 
         string categoryMode = this.PendingUsesAutomaticCategory ? $"auto: {this.PendingCategory}" : this.PendingCategory;
         this.monitor.Log(
-            $"Placement started for '{this.PendingName}' ({categoryMode}). Left click places; R rotates; Q/E or controller shoulders change track length; T toggles tracks; H toggles wall hole; right click/Escape cancels.",
+            $"Placement started for '{this.PendingName}' ({categoryMode}). Left click places; R rotates; Q/E or controller shoulders change track length; T toggles tracks; H toggles mine entrance; right click/Escape cancels.",
             LogLevel.Info
         );
         return true;
@@ -163,7 +166,7 @@ public sealed class PlacementManager
         {
             this.helper.Input.Suppress(e.Button);
             this.HasWallHole = !this.HasWallHole;
-            this.monitor.Log($"Wall hole: {(this.HasWallHole ? "ON" : "OFF")}.", LogLevel.Info);
+            this.monitor.Log($"Mine entrance: {(this.HasWallHole ? "ON" : "OFF")}.", LogLevel.Info);
             return;
         }
 
@@ -293,8 +296,8 @@ public sealed class PlacementManager
             }
         }
 
-        // The construction corridor deliberately ignores map walls, objects and terrain features.
-        // Only the arrival tile must remain genuinely open for the farmer.
+        // Tunnel, rails and cart form a construction corridor which may visually replace
+        // the local environment. Only the tile in front of the cart must genuinely remain open.
         Vector2 arrivalVector = new(arrivalTile.X, arrivalTile.Y);
         if (location.IsTileOccupiedBy(
                 arrivalVector,
