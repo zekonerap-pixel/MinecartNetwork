@@ -69,16 +69,19 @@ public sealed class PlacementManager
         if (!this.IsPlacing || !Context.IsWorldReady)
             return;
 
+        // Placement mode is modal. Suppress every button before handling it so
+        // Stardew Valley can't also open menus, use tools, change hotbar slots,
+        // or trigger another action while the placement overlay is active.
+        this.helper.Input.Suppress(e.Button);
+
         if (e.Button is SButton.Escape or SButton.MouseRight or SButton.ControllerB)
         {
-            this.helper.Input.Suppress(e.Button);
             this.Cancel();
             return;
         }
 
         if (e.Button == SButton.T)
         {
-            this.helper.Input.Suppress(e.Button);
             this.HasTracks = !this.HasTracks;
             this.monitor.Log($"Tracks: {(this.HasTracks ? "ON" : "OFF")}.", LogLevel.Info);
             return;
@@ -86,7 +89,6 @@ public sealed class PlacementManager
 
         if (e.Button == SButton.H)
         {
-            this.helper.Input.Suppress(e.Button);
             this.HasWallHole = !this.HasWallHole;
             this.monitor.Log($"Wall hole: {(this.HasWallHole ? "ON" : "OFF")}.", LogLevel.Info);
             return;
@@ -94,8 +96,6 @@ public sealed class PlacementManager
 
         if (e.Button is not (SButton.MouseLeft or SButton.ControllerA))
             return;
-
-        this.helper.Input.Suppress(e.Button);
 
         Point tile = this.GetPreviewTile();
         if (!this.CanPlaceAt(Game1.currentLocation, tile.X, tile.Y, out string reason))
