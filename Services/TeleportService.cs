@@ -41,7 +41,7 @@ public sealed class TeleportService
         try
         {
             if (this.config.PlayWarpSound)
-                Game1.currentLocation.playSound("dwarvishSentry");
+                Game1.currentLocation.playSound("wand");
 
             Game1.warpFarmer(station.LocationName, station.TileX, station.TileY, station.FacingDirection);
             this.monitor.Log($"Warped to station '{station.Name}' ({station.LocationName} {station.TileX},{station.TileY}).", LogLevel.Trace);
