@@ -5,9 +5,14 @@ namespace MinecartNetwork.Rendering;
 
 public sealed class MinecartVisualAssets
 {
-    public const int CanvasWidth = 32;
-    public const int CanvasHeight = 24;
+    // Stardew renders 16 source pixels as one 64 px world tile at 4x scale.
+    public const int TileSourceSize = 16;
     public const int PixelScale = 4;
+
+    // The tunnel artwork may be larger than one source tile because it is allowed
+    // to overhang visually while keeping a one-tile logical footprint.
+    public const int EntranceSourceWidth = 20;
+    public const int EntranceSourceHeight = 22;
 
     private readonly IModHelper helper;
 
