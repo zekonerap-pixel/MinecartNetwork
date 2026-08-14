@@ -41,6 +41,7 @@ public sealed class ModEntry : Mod
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
+        helper.Events.GameLoop.UpdateTicked += this.InteractionManager.OnUpdateTicked;
 
         helper.Events.Input.ButtonPressed += this.PlacementManager.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.InteractionManager.OnButtonPressed;
