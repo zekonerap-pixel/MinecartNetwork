@@ -13,7 +13,10 @@ public sealed class PlacementManager
     private readonly StationManager stations;
     private readonly ModConfig config;
 
+    private string? movingStationId;
+
     public bool IsPlacing { get; private set; }
+    public bool IsMoving => this.movingStationId is not null;
     public string PendingName { get; private set; } = "";
     public string PendingCategory { get; private set; } = "";
     public bool HasTracks { get; private set; } = true;
@@ -29,18 +32,10 @@ public sealed class PlacementManager
 
     public bool Begin(string name, string category)
     {
-        if (!Context.IsWorldReady || !Context.IsPlayerFree || Game1.activeClickableMenu is not null)
-        {
-            this.monitor.Log("You can only start minecart placement while the player is free in a loaded save.", LogLevel.Warn);
+        if (!this.CanBeginPlacement())
             return false;
-        }
 
-        if (!Context.IsMainPlayer)
-        {
-            this.monitor.Log("Only the host can place custom minecarts in this alpha.", LogLevel.Warn);
-            return false;
-        }
-
+        this.movingStationId = null;
         this.PendingName = string.IsNullOrWhiteSpace(name) ? "Minecart" : name.Trim();
         this.PendingCategory = string.IsNullOrWhiteSpace(category) ? this.config.DefaultCategory : category.Trim();
         this.HasTracks = true;
@@ -54,14 +49,47 @@ public sealed class PlacementManager
         return true;
     }
 
+    public bool BeginMove(MinecartStation station)
+    {
+        if (!station.HasPhysicalMinecart)
+        {
+            this.monitor.Log("Only physical minecart stations can be moved.", LogLevel.Warn);
+            return false;
+        }
+
+        if (!this.CanBeginPlacement())
+            return false;
+
+        this.movingStationId = station.Id;
+        this.PendingName = station.Name;
+        this.PendingCategory = station.Category;
+        this.HasTracks = station.HasTracks;
+        this.HasWallHole = station.HasWallHole;
+        this.IsPlacing = true;
+
+        this.monitor.Log(
+            $"Moving station '{station.Name}'. Left click confirms the new position; right click/Escape cancels without changing the original station.",
+            LogLevel.Info
+        );
+        return true;
+    }
+
     public void Cancel(bool silent = false)
     {
         if (!this.IsPlacing)
             return;
 
+        bool wasMoving = this.IsMoving;
         this.IsPlacing = false;
+        this.movingStationId = null;
+
         if (!silent)
-            this.monitor.Log("Minecart placement cancelled.", LogLevel.Info);
+        {
+            this.monitor.Log(
+                wasMoving ? "Minecart move cancelled; original position kept." : "Minecart placement cancelled.",
+                LogLevel.Info
+            );
+        }
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -69,8 +97,6 @@ public sealed class PlacementManager
         if (!this.IsPlacing || !Context.IsWorldReady)
             return;
 
-        // Only consume Minecart Network's own placement controls. Other input,
-        // especially movement, must continue to reach the game normally.
         if (e.Button is SButton.Escape or SButton.MouseRight or SButton.ControllerB)
         {
             this.helper.Input.Suppress(e.Button);
@@ -108,6 +134,39 @@ public sealed class PlacementManager
         }
 
         Point warpTile = new(tile.X, tile.Y + 1);
+
+        if (this.IsMoving)
+        {
+            string movingId = this.movingStationId!;
+            bool moved = this.stations.MovePlaced(
+                movingId,
+                Game1.currentLocation.NameOrUniqueName,
+                tile.X,
+                tile.Y,
+                warpTile.X,
+                warpTile.Y,
+                this.HasTracks,
+                this.HasWallHole
+            );
+
+            if (!moved)
+            {
+                this.monitor.Log("The station being moved could no longer be found.", LogLevel.Error);
+                Game1.playSound("cancel");
+                this.Cancel(silent: true);
+                return;
+            }
+
+            Game1.playSound("coin");
+            this.monitor.Log(
+                $"Moved station '{this.PendingName}' to {Game1.currentLocation.NameOrUniqueName} {tile.X},{tile.Y}; arrival tile {warpTile.X},{warpTile.Y}.",
+                LogLevel.Info
+            );
+            this.IsPlacing = false;
+            this.movingStationId = null;
+            return;
+        }
+
         MinecartStation station = this.stations.AddPlaced(
             this.PendingName,
             this.PendingCategory,
@@ -133,9 +192,6 @@ public sealed class PlacementManager
         if (!this.IsPlacing || e.NewMenu is null)
             return;
 
-        // Input suppression stops the vanilla game from handling a button, but
-        // SMAPI intentionally doesn't prevent other mods from handling the same
-        // input. If any menu still opens while placement is active, close it.
         if (Game1.activeClickableMenu is not null)
         {
             this.monitor.Log(
@@ -211,6 +267,7 @@ public sealed class PlacementManager
         foreach (MinecartStation station in this.stations.Stations)
         {
             if (!station.HasPhysicalMinecart
+                || station.Id.Equals(this.movingStationId, StringComparison.OrdinalIgnoreCase)
                 || !station.LocationName.Equals(location.NameOrUniqueName, StringComparison.OrdinalIgnoreCase))
                 continue;
 
@@ -225,6 +282,23 @@ public sealed class PlacementManager
                 reason = $"it overlaps station '{station.Name}'";
                 return false;
             }
+        }
+
+        return true;
+    }
+
+    private bool CanBeginPlacement()
+    {
+        if (!Context.IsWorldReady || !Context.IsPlayerFree || Game1.activeClickableMenu is not null)
+        {
+            this.monitor.Log("You can only start minecart placement while the player is free in a loaded save.", LogLevel.Warn);
+            return false;
+        }
+
+        if (!Context.IsMainPlayer)
+        {
+            this.monitor.Log("Only the host can place or move custom minecarts in this alpha.", LogLevel.Warn);
+            return false;
         }
 
         return true;
