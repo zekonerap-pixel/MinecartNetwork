@@ -9,12 +9,14 @@ public sealed class MinecartVisualAssets
     public const int PixelScale = 4;
 
     // Four directional frames in order: up, right, down, left.
-    // The detailed entrance intentionally overhangs vertically while keeping
-    // the station's logical construction footprint unchanged.
+    // The entrance can overhang its logical tile footprint without changing station geometry.
     public const int EntranceFrameWidth = 28;
     public const int EntranceFrameHeight = 28;
-    public const int MinecartFrameWidth = 16;
-    public const int MinecartFrameHeight = 16;
+
+    // Minecart uses larger square source cells so every direction can keep its own silhouette
+    // without being stretched into a shared 16x16 shape.
+    public const int MinecartFrameWidth = 24;
+    public const int MinecartFrameHeight = 24;
 
     // tracks.png contains vertical then horizontal 16x16 frames.
     public const int TrackFrameSize = 16;
