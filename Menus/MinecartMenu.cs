@@ -157,15 +157,20 @@ public sealed class MinecartMenu : IClickableMenu
         if (this.maxScroll > 0)
         {
             string scroll = this.helper.Translation.Get("menu.scroll");
-            Vector2 size = Game1.tinyFont.MeasureString(scroll);
+            Vector2 size = Game1.smallFont.MeasureString(scroll) * 0.75f;
             b.DrawString(
-                Game1.tinyFont,
+                Game1.smallFont,
                 scroll,
                 new Vector2(
                     this.xPositionOnScreen + this.width - size.X - 34,
                     this.yPositionOnScreen + this.height - 31
                 ),
-                Color.Gray
+                Color.Gray,
+                0f,
+                Vector2.Zero,
+                0.75f,
+                SpriteEffects.None,
+                0f
             );
         }
 
