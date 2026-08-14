@@ -9,6 +9,7 @@ public sealed class DebugCommandHandler
 {
     private readonly IMonitor monitor;
     private readonly StationManager stations;
+    private readonly LocationRegionService regions;
     private readonly TeleportService teleport;
     private readonly PlacementManager placement;
     private readonly ModConfig config;
@@ -16,12 +17,14 @@ public sealed class DebugCommandHandler
     public DebugCommandHandler(
         IMonitor monitor,
         StationManager stations,
+        LocationRegionService regions,
         TeleportService teleport,
         PlacementManager placement,
         ModConfig config)
     {
         this.monitor = monitor;
         this.stations = stations;
+        this.regions = regions;
         this.teleport = teleport;
         this.placement = placement;
         this.config = config;
@@ -79,11 +82,20 @@ public sealed class DebugCommandHandler
         }
 
         string name = args[0];
-        string category = args.Length > 1 ? string.Join(' ', args.Skip(1)) : this.config.DefaultCategory;
-        MinecartStation station = this.stations.AddAtPlayer(name, category);
+        string? manualCategory = args.Length > 1 ? string.Join(' ', args.Skip(1)) : null;
+        bool automatic = string.IsNullOrWhiteSpace(manualCategory) && this.config.AutoCategorizeNewStations;
+        string category = automatic
+            ? this.regions.GetCategoryForLocation(Game1.currentLocation.NameOrUniqueName)
+            : string.IsNullOrWhiteSpace(manualCategory) ? this.config.DefaultCategory : manualCategory.Trim();
+
+        MinecartStation station = this.stations.AddAtPlayer(
+            name,
+            category,
+            useAutomaticCategory: automatic
+        );
 
         this.monitor.Log(
-            $"Created station '{station.Name}' [{station.Id[..8]}] in {station.LocationName} at {station.TileX},{station.TileY} (category: {station.Category}).",
+            $"Created station '{station.Name}' [{station.Id[..8]}] in {station.LocationName} at {station.TileX},{station.TileY} (category: {this.regions.GetStationCategory(station)}{(station.UseAutomaticCategory ? ", auto" : "")}).",
             LogLevel.Info
         );
     }
@@ -97,7 +109,7 @@ public sealed class DebugCommandHandler
         }
 
         string name = args[0];
-        string category = args.Length > 1 ? string.Join(' ', args.Skip(1)) : this.config.DefaultCategory;
+        string? category = args.Length > 1 ? string.Join(' ', args.Skip(1)) : null;
         this.placement.Begin(name, category);
     }
 
@@ -116,9 +128,9 @@ public sealed class DebugCommandHandler
         }
 
         foreach (IGrouping<string, MinecartStation> group in this.stations.Stations
-                     .OrderBy(station => station.Category)
+                     .OrderBy(station => this.regions.GetStationCategory(station))
                      .ThenBy(station => station.Name)
-                     .GroupBy(station => station.Category))
+                     .GroupBy(station => this.regions.GetStationCategory(station)))
         {
             this.monitor.Log($"[{group.Key}]", LogLevel.Info);
             foreach (MinecartStation station in group)
@@ -126,9 +138,10 @@ public sealed class DebugCommandHandler
                 string physical = station.HasPhysicalMinecart
                     ? $" | cart {station.VisualTileX},{station.VisualTileY}"
                     : " | no physical cart";
+                string mode = station.UseAutomaticCategory ? " | auto category" : "";
 
                 this.monitor.Log(
-                    $"  {station.Name} | {station.Id[..8]} | {station.LocationName} arrival {station.TileX},{station.TileY}{physical}",
+                    $"  {station.Name} | {station.Id[..8]} | {station.LocationName} arrival {station.TileX},{station.TileY}{physical}{mode}",
                     LogLevel.Info
                 );
             }
@@ -156,7 +169,7 @@ public sealed class DebugCommandHandler
         {
             this.monitor.Log($"Station '{target}' is ambiguous. Use category + name or an ID prefix:", LogLevel.Warn);
             foreach (MinecartStation match in matches)
-                this.monitor.Log($"  {match.Category} -> {match.Name} [{match.Id[..8]}]", LogLevel.Info);
+                this.monitor.Log($"  {this.regions.GetStationCategory(match)} -> {match.Name} [{match.Id[..8]}]", LogLevel.Info);
             return;
         }
 
@@ -185,7 +198,7 @@ public sealed class DebugCommandHandler
         {
             this.monitor.Log($"Station '{target}' is ambiguous. Use category + name or an ID prefix:", LogLevel.Warn);
             foreach (MinecartStation match in matches)
-                this.monitor.Log($"  {match.Category} -> {match.Name} [{match.Id[..8]}]", LogLevel.Info);
+                this.monitor.Log($"  {this.regions.GetStationCategory(match)} -> {match.Name} [{match.Id[..8]}]", LogLevel.Info);
             return;
         }
 
@@ -197,8 +210,8 @@ public sealed class DebugCommandHandler
     private void PrintHelp()
     {
         this.monitor.Log("Minecart Network test commands:", LogLevel.Info);
-        this.monitor.Log("  mn addhere <name> [category]   - create a non-physical station at your current tile", LogLevel.Info);
-        this.monitor.Log("  mn place <name> [category]     - enter physical minecart placement mode", LogLevel.Info);
+        this.monitor.Log("  mn addhere <name> [category]   - create a non-physical station; category is automatic when omitted", LogLevel.Info);
+        this.monitor.Log("  mn place <name> [category]     - place a physical minecart; category is automatic when omitted", LogLevel.Info);
         this.monitor.Log("  mn list                        - list saved stations", LogLevel.Info);
         this.monitor.Log("  mn goto <name-or-id>           - warp to a station", LogLevel.Info);
         this.monitor.Log("  mn goto <category> <name>      - warp using category + name", LogLevel.Info);
