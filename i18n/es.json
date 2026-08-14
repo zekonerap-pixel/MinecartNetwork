@@ -42,9 +42,9 @@
   "common.off": "NO",
   "placement.title": "Colocando: {{name}}  ·  {{category}}",
   "placement.move-title": "Moviendo: {{name}}  ·  {{category}}",
-  "placement.controls": "Clic izq./A: colocar  |  R/X: rotar  |  Q/E o LB/RB: longitud  |  T: vías  |  H: agujero  |  Clic der./Esc/B: cancelar",
-  "placement.move-controls": "Clic izq./A: confirmar  |  R/X: rotar  |  Q/E o LB/RB: longitud  |  T: vías  |  H: agujero  |  Clic der./Esc/B: cancelar",
-  "placement.options": "Vías: {{tracks}}  ·  Agujero: {{hole}}",
+  "placement.controls": "Clic izq./A: colocar  |  R/X: rotar  |  Q/E o LB/RB: longitud  |  T: vías  |  H: entrada  |  Clic der./Esc/B: cancelar",
+  "placement.move-controls": "Clic izq./A: confirmar  |  R/X: rotar  |  Q/E o LB/RB: longitud  |  T: vías  |  H: entrada  |  Clic der./Esc/B: cancelar",
+  "placement.options": "Vías: {{tracks}}  ·  Entrada de mina: {{hole}}",
   "placement.geometry": "Dirección: {{direction}}  ·  Tramos entre túnel y vagoneta: {{length}}",
   "placement.valid": "Posición válida · solo la casilla verde de llegada debe quedar libre",
   "placement.invalid": "Posición no válida: {{reason}}"
