@@ -1,0 +1,19 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch code
+        uses: actions/checkout@v4
+
+      - name: Add Stardew/SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Build mod
+        run: dotnet build --configuration Release
