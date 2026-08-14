@@ -115,13 +115,37 @@ public sealed class StationManager
         return station;
     }
 
+    public bool UpdateName(string id, string name)
+    {
+        MinecartStation? station = this.GetById(id);
+        if (station is null || string.IsNullOrWhiteSpace(name))
+            return false;
+
+        station.Name = name.Trim();
+        this.Save();
+        return true;
+    }
+
+    public bool SetManualCategory(string id, string category)
+    {
+        MinecartStation? station = this.GetById(id);
+        if (station is null || string.IsNullOrWhiteSpace(category))
+            return false;
+
+        station.Category = category.Trim();
+        station.UseAutomaticCategory = false;
+        this.Save();
+        return true;
+    }
+
     public bool UpdateDetails(string id, string name, string category)
     {
         MinecartStation? station = this.GetById(id);
         if (station is null)
             return false;
 
-        station.Name = string.IsNullOrWhiteSpace(name) ? station.Name : name.Trim();
+        if (!string.IsNullOrWhiteSpace(name))
+            station.Name = name.Trim();
         station.Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim();
         station.UseAutomaticCategory = false;
         this.Save();
