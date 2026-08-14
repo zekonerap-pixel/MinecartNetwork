@@ -22,6 +22,7 @@ public sealed class MinecartMenu : IClickableMenu
     private readonly StationManager stations;
     private readonly VanillaMinecartService vanillaMinecarts;
     private readonly TeleportService teleport;
+    private readonly PlacementManager placement;
     private readonly string originName;
     private readonly string? excludedCustomStationId;
     private readonly string? excludedVanillaDestinationId;
@@ -37,6 +38,7 @@ public sealed class MinecartMenu : IClickableMenu
         StationManager stations,
         VanillaMinecartService vanillaMinecarts,
         TeleportService teleport,
+        PlacementManager placement,
         string originName,
         string? excludedCustomStationId = null,
         string? excludedVanillaDestinationId = null)
@@ -52,6 +54,7 @@ public sealed class MinecartMenu : IClickableMenu
         this.stations = stations;
         this.vanillaMinecarts = vanillaMinecarts;
         this.teleport = teleport;
+        this.placement = placement;
         this.originName = originName;
         this.excludedCustomStationId = excludedCustomStationId;
         this.excludedVanillaDestinationId = excludedVanillaDestinationId;
@@ -63,6 +66,22 @@ public sealed class MinecartMenu : IClickableMenu
 
         if (this.upperRightCloseButton?.containsPoint(x, y) == true)
             return;
+
+        if (this.EditButton is Rectangle editButton && editButton.Contains(x, y))
+        {
+            MinecartStation? origin = this.GetEditableOrigin();
+            if (origin is not null)
+            {
+                Game1.playSound("smallSelect");
+                Game1.activeClickableMenu = new StationEditMenu(
+                    this.helper,
+                    this.stations,
+                    this.placement,
+                    origin
+                );
+            }
+            return;
+        }
 
         this.BuildRows();
 
@@ -174,6 +193,9 @@ public sealed class MinecartMenu : IClickableMenu
             }
         }
 
+        if (this.EditButton is Rectangle editButton)
+            this.DrawEditButton(b, editButton);
+
         if (this.maxScroll > 0)
         {
             string scroll = this.helper.Translation.Get("menu.scroll");
@@ -199,8 +221,22 @@ public sealed class MinecartMenu : IClickableMenu
     }
 
     private int ContentTop => this.yPositionOnScreen + 116;
-    private int ContentBottom => this.yPositionOnScreen + this.height - 48;
+    private int ContentBottom => this.yPositionOnScreen + this.height - 72;
     private int ContentHeight => this.ContentBottom - this.ContentTop;
+
+    private Rectangle? EditButton => this.GetEditableOrigin() is null
+        ? null
+        : new Rectangle(this.xPositionOnScreen + 34, this.yPositionOnScreen + this.height - 50, 210, 34);
+
+    private MinecartStation? GetEditableOrigin()
+    {
+        if (string.IsNullOrWhiteSpace(this.excludedCustomStationId))
+            return null;
+
+        return this.stations.Stations.FirstOrDefault(station =>
+            station.Id.Equals(this.excludedCustomStationId, StringComparison.OrdinalIgnoreCase)
+            && station.HasPhysicalMinecart);
+    }
 
     private void BuildRows()
     {
@@ -291,8 +327,9 @@ public sealed class MinecartMenu : IClickableMenu
     private void DrawCategoryRow(SpriteBatch b, MenuRow row)
     {
         bool collapsed = this.collapsedCategories.Contains(row.Category!);
-        this.Fill(b, row.Bounds, new Color(72, 56, 45));
-        this.Outline(b, row.Bounds, new Color(115, 86, 63), 2);
+        bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
+        this.Fill(b, row.Bounds, hovered ? new Color(88, 68, 53) : new Color(72, 56, 45));
+        this.Outline(b, row.Bounds, hovered ? new Color(145, 108, 76) : new Color(115, 86, 63), hovered ? 3 : 2);
 
         string marker = collapsed ? "▶" : "▼";
         b.DrawString(
@@ -305,14 +342,36 @@ public sealed class MinecartMenu : IClickableMenu
 
     private void DrawDestinationRow(SpriteBatch b, MenuRow row)
     {
-        this.Fill(b, row.Bounds, new Color(49, 43, 40));
-        this.Outline(b, row.Bounds, new Color(75, 66, 59), 1);
+        bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
+        this.Fill(b, row.Bounds, hovered ? new Color(66, 57, 51) : new Color(49, 43, 40));
+        this.Outline(b, row.Bounds, hovered ? new Color(109, 93, 80) : new Color(75, 66, 59), hovered ? 2 : 1);
 
         b.DrawString(
             Game1.smallFont,
             row.Destination!.Name,
             new Vector2(row.Bounds.X + 16, row.Bounds.Y + 8),
-            Color.White
+            hovered ? Color.Wheat : Color.White
+        );
+    }
+
+    private void DrawEditButton(SpriteBatch b, Rectangle bounds)
+    {
+        bool hovered = bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
+        this.Fill(b, bounds, hovered ? new Color(88, 68, 53) : new Color(59, 50, 45));
+        this.Outline(b, bounds, hovered ? new Color(145, 108, 76) : new Color(115, 86, 63), 2);
+
+        string text = this.helper.Translation.Get("menu.edit-station");
+        Vector2 size = Game1.smallFont.MeasureString(text) * 0.75f;
+        b.DrawString(
+            Game1.smallFont,
+            text,
+            new Vector2(bounds.X + 12, bounds.Y + (bounds.Height - size.Y) / 2f),
+            Color.Wheat,
+            0f,
+            Vector2.Zero,
+            0.75f,
+            SpriteEffects.None,
+            0f
         );
     }
 
