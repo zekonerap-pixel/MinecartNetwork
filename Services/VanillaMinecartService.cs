@@ -13,11 +13,13 @@ public sealed class VanillaMinecartService
 
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
+    private readonly LocationRegionService regions;
 
-    public VanillaMinecartService(IModHelper helper, IMonitor monitor)
+    public VanillaMinecartService(IModHelper helper, IMonitor monitor, LocationRegionService regions)
     {
         this.helper = helper;
         this.monitor = monitor;
+        this.regions = regions;
     }
 
     public bool IsDefaultNetworkUnlocked()
@@ -89,7 +91,7 @@ public sealed class VanillaMinecartService
                 {
                     Id = id,
                     Name = this.GetDisplayName(id, targetLocation),
-                    Category = this.GetCategory(id, targetLocation),
+                    Category = this.regions.GetCategoryForDestination(id, targetLocation),
                     TargetLocation = targetLocation,
                     TargetTileX = tileX,
                     TargetTileY = tileY,
@@ -190,27 +192,7 @@ public sealed class VanillaMinecartService
         if (!string.IsNullOrEmpty(key))
             return this.helper.Translation.Get(key);
 
-        return string.IsNullOrWhiteSpace(id) ? targetLocation : id;
-    }
-
-    private string GetCategory(string id, string targetLocation)
-    {
-        string normalizedId = id.ToLowerInvariant();
-        string normalizedLocation = targetLocation.ToLowerInvariant();
-
-        if (normalizedId == "town" || normalizedLocation == "town")
-            return this.helper.Translation.Get("region.town");
-
-        if (normalizedId == "mines" || normalizedLocation.Contains("mine"))
-            return this.helper.Translation.Get("region.mines");
-
-        if (normalizedId == "bus" || normalizedLocation == "busstop")
-            return this.helper.Translation.Get("region.farm");
-
-        if (normalizedId == "quarry" || normalizedLocation == "mountain")
-            return this.helper.Translation.Get("region.mountain");
-
-        return this.helper.Translation.Get("region.other");
+        return this.regions.HumanizeIdentifier(string.IsNullOrWhiteSpace(id) ? targetLocation : id);
     }
 
     private int ParseDirection(object? value)
