@@ -13,6 +13,7 @@ namespace MinecartNetwork;
 public sealed class ModEntry : Mod
 {
     private ModConfig Config = null!;
+    private LocationRegionService LocationRegionService = null!;
     private StationManager StationManager = null!;
     private VanillaMinecartService VanillaMinecartService = null!;
     private TeleportService TeleportService = null!;
@@ -24,14 +25,22 @@ public sealed class ModEntry : Mod
     public override void Entry(IModHelper helper)
     {
         this.Config = helper.ReadConfig<ModConfig>();
-        this.StationManager = new StationManager(helper, this.Monitor);
-        this.VanillaMinecartService = new VanillaMinecartService(helper, this.Monitor);
+        this.LocationRegionService = new LocationRegionService(helper);
+        this.StationManager = new StationManager(helper, this.Monitor, this.LocationRegionService);
+        this.VanillaMinecartService = new VanillaMinecartService(helper, this.Monitor, this.LocationRegionService);
         this.TeleportService = new TeleportService(this.Monitor, this.Config);
-        this.PlacementManager = new PlacementManager(helper, this.Monitor, this.StationManager, this.Config);
+        this.PlacementManager = new PlacementManager(
+            helper,
+            this.Monitor,
+            this.StationManager,
+            this.LocationRegionService,
+            this.Config
+        );
         this.InteractionManager = new InteractionManager(
             helper,
             this.Monitor,
             this.StationManager,
+            this.LocationRegionService,
             this.VanillaMinecartService,
             this.TeleportService,
             this.PlacementManager
@@ -40,6 +49,7 @@ public sealed class ModEntry : Mod
         this.DebugCommands = new DebugCommandHandler(
             this.Monitor,
             this.StationManager,
+            this.LocationRegionService,
             this.TeleportService,
             this.PlacementManager,
             this.Config
@@ -106,6 +116,7 @@ public sealed class ModEntry : Mod
             this.Helper,
             this.Monitor,
             this.StationManager,
+            this.LocationRegionService,
             this.VanillaMinecartService,
             this.TeleportService,
             this.PlacementManager,
