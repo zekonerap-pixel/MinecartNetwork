@@ -1,6 +1,9 @@
 {
   "mod.name": "Minecart Network",
   "menu.title": "Minecart Network",
+  "menu.origin": "Origin: {{name}}",
+  "menu.empty": "There are no other destinations available.",
+  "menu.scroll": "Use the mouse wheel to scroll",
   "category.other": "Other",
   "station.default-name": "Minecart",
   "common.on": "ON",
