@@ -15,11 +15,20 @@ public sealed class VanillaMinecartService
     private readonly IMonitor monitor;
     private readonly LocationRegionService regions;
 
+    public string ActiveNetworkId { get; private set; } = DefaultNetworkId;
+
     public VanillaMinecartService(IModHelper helper, IMonitor monitor, LocationRegionService regions)
     {
         this.helper = helper;
         this.monitor = monitor;
         this.regions = regions;
+    }
+
+    public void SelectNetwork(string? networkId)
+    {
+        this.ActiveNetworkId = string.IsNullOrWhiteSpace(networkId)
+            ? DefaultNetworkId
+            : networkId.Trim();
     }
 
     public bool IsDefaultNetworkUnlocked() => this.IsNetworkUnlocked(DefaultNetworkId);
@@ -61,7 +70,7 @@ public sealed class VanillaMinecartService
     }
 
     public IReadOnlyList<VanillaMinecartDestination> GetAvailableDefaultDestinations()
-        => this.GetAvailableDestinations(DefaultNetworkId);
+        => this.GetAvailableDestinations(this.ActiveNetworkId);
 
     public IReadOnlyList<VanillaMinecartDestination> GetAvailableDestinations(string networkId)
     {
@@ -129,7 +138,7 @@ public sealed class VanillaMinecartService
     }
 
     public string GetDisplayName(string? destinationId)
-        => this.GetDisplayName(DefaultNetworkId, destinationId);
+        => this.GetDisplayName(this.ActiveNetworkId, destinationId);
 
     public string GetDisplayName(string networkId, string? destinationId)
     {
