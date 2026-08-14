@@ -200,6 +200,14 @@ public sealed class VanillaMinecartService
     private VanillaMinecartDestination? CreateDestination(string networkId, object rawDestination)
     {
         string id = this.GetString(rawDestination, "Id") ?? "Unknown";
+
+        // Custom stations are mirrored into Data/Minecarts during the backend migration,
+        // but MinecartMenu still adds them from StationManager in this phase. Hide the
+        // mirrored copy here so each station only appears once until the menu is fully
+        // switched to the native data source.
+        if (MinecartDataSyncService.IsManagedDestinationId(id))
+            return null;
+
         string targetLocation = this.GetString(rawDestination, "TargetLocation") ?? "";
         object? targetTile = this.GetMemberValue(rawDestination, "TargetTile");
         int tileX = targetTile is null ? 0 : this.GetInt(targetTile, "X") ?? 0;
