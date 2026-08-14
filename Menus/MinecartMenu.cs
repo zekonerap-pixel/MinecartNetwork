@@ -20,8 +20,11 @@ public sealed class MinecartMenu : IClickableMenu
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
     private readonly StationManager stations;
+    private readonly VanillaMinecartService vanillaMinecarts;
     private readonly TeleportService teleport;
-    private readonly MinecartStation origin;
+    private readonly string originName;
+    private readonly string? excludedCustomStationId;
+    private readonly string? excludedVanillaDestinationId;
     private readonly HashSet<string> collapsedCategories = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<MenuRow> visibleRows = new();
 
@@ -32,8 +35,11 @@ public sealed class MinecartMenu : IClickableMenu
         IModHelper helper,
         IMonitor monitor,
         StationManager stations,
+        VanillaMinecartService vanillaMinecarts,
         TeleportService teleport,
-        MinecartStation origin)
+        string originName,
+        string? excludedCustomStationId = null,
+        string? excludedVanillaDestinationId = null)
         : base(
             Game1.uiViewport.Width / 2 - MenuWidth / 2,
             Game1.uiViewport.Height / 2 - MenuHeight / 2,
@@ -44,8 +50,11 @@ public sealed class MinecartMenu : IClickableMenu
         this.helper = helper;
         this.monitor = monitor;
         this.stations = stations;
+        this.vanillaMinecarts = vanillaMinecarts;
         this.teleport = teleport;
-        this.origin = origin;
+        this.originName = originName;
+        this.excludedCustomStationId = excludedCustomStationId;
+        this.excludedVanillaDestinationId = excludedVanillaDestinationId;
     }
 
     public override void receiveLeftClick(int x, int y, bool playSound = true)
@@ -72,15 +81,25 @@ public sealed class MinecartMenu : IClickableMenu
                 return;
             }
 
-            if (row.Station is null)
+            if (row.Destination is null)
                 return;
 
-            MinecartStation destination = row.Station;
+            MenuDestination destination = row.Destination;
             Game1.exitActiveMenu();
 
-            if (!this.teleport.TryWarp(destination, out string? error))
+            bool success;
+            string? error;
+
+            if (destination.CustomStation is not null)
+                success = this.teleport.TryWarp(destination.CustomStation, out error);
+            else if (destination.VanillaDestination is not null)
+                success = this.vanillaMinecarts.TryWarp(destination.VanillaDestination, out error);
+            else
+                return;
+
+            if (!success)
             {
-                this.monitor.Log(error ?? $"Failed to travel to station '{destination.Name}'.", LogLevel.Error);
+                this.monitor.Log(error ?? $"Failed to travel to destination '{destination.Name}'.", LogLevel.Error);
                 if (!string.IsNullOrWhiteSpace(error))
                     Game1.showRedMessage(error);
             }
@@ -117,7 +136,7 @@ public sealed class MinecartMenu : IClickableMenu
             Color.Wheat
         );
 
-        string originText = this.helper.Translation.Get("menu.origin", new { name = this.origin.Name });
+        string originText = this.helper.Translation.Get("menu.origin", new { name = this.originName });
         b.DrawString(
             Game1.smallFont,
             originText,
@@ -150,8 +169,8 @@ public sealed class MinecartMenu : IClickableMenu
 
                 if (row.Category is not null)
                     this.DrawCategoryRow(b, row);
-                else if (row.Station is not null)
-                    this.DrawStationRow(b, row);
+                else if (row.Destination is not null)
+                    this.DrawDestinationRow(b, row);
             }
         }
 
@@ -187,15 +206,15 @@ public sealed class MinecartMenu : IClickableMenu
     {
         this.visibleRows.Clear();
 
-        List<IGrouping<string, MinecartStation>> groups = this.stations.Stations
-            .Where(station => station.IsEnabled && station.Id != this.origin.Id)
-            .OrderBy(station => station.Category, StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(station => station.Name, StringComparer.CurrentCultureIgnoreCase)
-            .GroupBy(station => station.Category, StringComparer.OrdinalIgnoreCase)
+        List<MenuDestination> destinations = this.GetDestinations();
+        List<IGrouping<string, MenuDestination>> groups = destinations
+            .OrderBy(destination => destination.Category, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(destination => destination.Name, StringComparer.CurrentCultureIgnoreCase)
+            .GroupBy(destination => destination.Category, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         int totalHeight = 0;
-        foreach (IGrouping<string, MinecartStation> group in groups)
+        foreach (IGrouping<string, MenuDestination> group in groups)
         {
             totalHeight += HeaderHeight + RowGap;
             if (!this.collapsedCategories.Contains(group.Key))
@@ -209,7 +228,7 @@ public sealed class MinecartMenu : IClickableMenu
         int x = this.xPositionOnScreen + 32;
         int rowWidth = this.width - 64;
 
-        foreach (IGrouping<string, MinecartStation> group in groups)
+        foreach (IGrouping<string, MenuDestination> group in groups)
         {
             this.visibleRows.Add(new MenuRow(
                 new Rectangle(x, y, rowWidth, HeaderHeight),
@@ -221,16 +240,52 @@ public sealed class MinecartMenu : IClickableMenu
             if (this.collapsedCategories.Contains(group.Key))
                 continue;
 
-            foreach (MinecartStation station in group)
+            foreach (MenuDestination destination in group)
             {
                 this.visibleRows.Add(new MenuRow(
                     new Rectangle(x + 18, y, rowWidth - 18, StationHeight),
                     null,
-                    station
+                    destination
                 ));
                 y += StationHeight + RowGap;
             }
         }
+    }
+
+    private List<MenuDestination> GetDestinations()
+    {
+        var result = new List<MenuDestination>();
+
+        foreach (MinecartStation station in this.stations.Stations)
+        {
+            if (!station.IsEnabled
+                || (!string.IsNullOrEmpty(this.excludedCustomStationId)
+                    && station.Id.Equals(this.excludedCustomStationId, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            result.Add(new MenuDestination(
+                station.Name,
+                station.Category,
+                station,
+                null
+            ));
+        }
+
+        foreach (VanillaMinecartDestination destination in this.vanillaMinecarts.GetAvailableDefaultDestinations())
+        {
+            if (!string.IsNullOrEmpty(this.excludedVanillaDestinationId)
+                && destination.Id.Equals(this.excludedVanillaDestinationId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            result.Add(new MenuDestination(
+                destination.Name,
+                destination.Category,
+                null,
+                destination
+            ));
+        }
+
+        return result;
     }
 
     private void DrawCategoryRow(SpriteBatch b, MenuRow row)
@@ -248,14 +303,14 @@ public sealed class MinecartMenu : IClickableMenu
         );
     }
 
-    private void DrawStationRow(SpriteBatch b, MenuRow row)
+    private void DrawDestinationRow(SpriteBatch b, MenuRow row)
     {
         this.Fill(b, row.Bounds, new Color(49, 43, 40));
         this.Outline(b, row.Bounds, new Color(75, 66, 59), 1);
 
         b.DrawString(
             Game1.smallFont,
-            row.Station!.Name,
+            row.Destination!.Name,
             new Vector2(row.Bounds.X + 16, row.Bounds.Y + 8),
             Color.White
         );
@@ -280,5 +335,12 @@ public sealed class MinecartMenu : IClickableMenu
         this.Fill(batch, new Rectangle(rectangle.Right - thickness, rectangle.Y, thickness, rectangle.Height), color);
     }
 
-    private sealed record MenuRow(Rectangle Bounds, string? Category, MinecartStation? Station);
+    private sealed record MenuDestination(
+        string Name,
+        string Category,
+        MinecartStation? CustomStation,
+        VanillaMinecartDestination? VanillaDestination
+    );
+
+    private sealed record MenuRow(Rectangle Bounds, string? Category, MenuDestination? Destination);
 }
