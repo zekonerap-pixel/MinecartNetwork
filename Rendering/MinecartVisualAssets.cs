@@ -11,7 +11,7 @@ public sealed class MinecartVisualAssets
     // Four directional frames in order: up, right, down, left.
     // The detailed entrance intentionally overhangs vertically while keeping
     // the station's logical construction footprint unchanged.
-    public const int EntranceFrameWidth = 24;
+    public const int EntranceFrameWidth = 28;
     public const int EntranceFrameHeight = 28;
     public const int MinecartFrameWidth = 16;
     public const int MinecartFrameHeight = 16;
