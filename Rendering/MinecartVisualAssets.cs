@@ -6,14 +6,14 @@ namespace MinecartNetwork.Rendering;
 
 public sealed class MinecartVisualAssets
 {
-    // Source atlas geometry only. Source-pixel dimensions no longer control world size.
+    // Source atlas geometry for the PolyCarts-derived PNG assets.
     // Four directional frames are stored in order: up, right, down, left.
-    public const int EntranceFrameWidth = 28;
-    public const int EntranceFrameHeight = 28;
-    public const int MinecartFrameWidth = 24;
-    public const int MinecartFrameHeight = 24;
+    public const int EntranceFrameWidth = 48;
+    public const int EntranceFrameHeight = 48;
+    public const int MinecartFrameWidth = 32;
+    public const int MinecartFrameHeight = 32;
 
-    // tracks.png contains vertical then horizontal frames.
+    // tracks.png contains vertical then horizontal 16x16 frames.
     public const int TrackFrameSize = 16;
 
     private readonly IModHelper helper;
