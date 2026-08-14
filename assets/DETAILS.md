@@ -1,1 +1,0 @@
-The detailed sprite binaries are generated from the approved sheet and will replace the simplified runtime assets. This file only documents the pass.

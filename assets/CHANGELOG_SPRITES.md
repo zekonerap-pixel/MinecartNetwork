@@ -1,1 +1,0 @@
-Current sprite pass replaces the simplified temporary art with detailed directional sprites derived from the approved minecart sheet. Entrance source size: 24x28. Minecart source size: 16x16. Tracks remain 16x16.
