@@ -212,7 +212,7 @@ public sealed class VanillaMinecartService
         string? rawDisplayName = this.GetString(rawDestination, "DisplayName");
         string displayName = this.GetFallbackDisplayName(id, targetLocation);
         if (!string.IsNullOrWhiteSpace(rawDisplayName)
-            && !rawDisplayName.TrimStart().StartsWith('[', StringComparison.Ordinal))
+            && !rawDisplayName.TrimStart().StartsWith("[", StringComparison.Ordinal))
         {
             displayName = rawDisplayName.Trim();
         }
