@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 
@@ -5,14 +6,16 @@ namespace MinecartNetwork.Rendering;
 
 public sealed class MinecartVisualAssets
 {
-    // Stardew renders 16 source pixels as one 64 px world tile at 4x scale.
-    public const int TileSourceSize = 16;
     public const int PixelScale = 4;
 
-    // The tunnel artwork may be larger than one source tile because it is allowed
-    // to overhang visually while keeping a one-tile logical footprint.
-    public const int EntranceSourceWidth = 20;
-    public const int EntranceSourceHeight = 22;
+    // Four directional frames in order: up, right, down, left.
+    public const int EntranceFrameWidth = 24;
+    public const int EntranceFrameHeight = 24;
+    public const int MinecartFrameWidth = 16;
+    public const int MinecartFrameHeight = 14;
+
+    // tracks.png contains vertical then horizontal 16x16 frames.
+    public const int TrackFrameSize = 16;
 
     private readonly IModHelper helper;
 
@@ -53,6 +56,25 @@ public sealed class MinecartVisualAssets
         }
     }
 
+    public Rectangle GetEntranceSourceRect(int direction)
+    {
+        int frame = NormalizeDirection(direction);
+        return new Rectangle(frame * EntranceFrameWidth, 0, EntranceFrameWidth, EntranceFrameHeight);
+    }
+
+    public Rectangle GetMinecartSourceRect(int direction)
+    {
+        int frame = NormalizeDirection(direction);
+        return new Rectangle(frame * MinecartFrameWidth, 0, MinecartFrameWidth, MinecartFrameHeight);
+    }
+
+    public Rectangle GetTrackSourceRect(int direction)
+    {
+        bool vertical = NormalizeDirection(direction) is 0 or 2;
+        int x = vertical ? 0 : TrackFrameSize;
+        return new Rectangle(x, 0, TrackFrameSize, TrackFrameSize);
+    }
+
     public void Invalidate()
     {
         this.loaded = false;
@@ -69,7 +91,7 @@ public sealed class MinecartVisualAssets
         this.loaded = true;
         this.minecart = this.TryLoad("assets/minecart.png");
         this.tracks = this.TryLoad("assets/tracks.png");
-        this.wallHole = this.TryLoad("assets/wall_hole.png");
+        this.wallHole = this.TryLoad("assets/mine_entrance.png");
     }
 
     private Texture2D? TryLoad(string relativePath)
@@ -90,5 +112,11 @@ public sealed class MinecartVisualAssets
         {
             return null;
         }
+    }
+
+    private static int NormalizeDirection(int direction)
+    {
+        int normalized = direction % 4;
+        return normalized < 0 ? normalized + 4 : normalized;
     }
 }
