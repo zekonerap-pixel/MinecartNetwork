@@ -6,7 +6,8 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>MinecartNetwork</AssemblyName>
     <RootNamespace>MinecartNetwork</RootNamespace>
-    <EnableModDeploy>false</EnableModDeploy>
+    <EnableModDeploy>true</EnableModDeploy>
+    <ModFolderName>MinecartNetwork</ModFolderName>
   </PropertyGroup>
 
   <ItemGroup>
