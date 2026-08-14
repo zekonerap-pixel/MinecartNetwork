@@ -1,12 +1,15 @@
 # Sprite layout
 
-- `mine_entrance.png`: 4 horizontal frames in order up, right, down, left; each frame is 28x28 source pixels.
-- `minecart.png`: 4 horizontal frames in order up, right, down, left; each frame is 24x24 source pixels (96x24 atlas total).
+Current station art uses the PolyCarts-derived PNG assets supplied in `assets/`:
+
+- `minecart.png`: 4 horizontal frames in order up, right, down, left; each frame is 32x32 source pixels (128x32 atlas total).
 - `tracks.png`: vertical then horizontal; each frame is 16x16 source pixels (32x16 atlas total).
+- `mine_entrance.png`: 4 horizontal frames in order up, right, down, left; each frame is 48x48 source pixels (192x48 atlas total).
 
-World rendering uses fixed target sizes instead of per-asset x2/x3/x4 multipliers:
-- minecart: 64x64 world pixels;
-- tracks: 64x64 world pixels;
-- entrance: 80x80 world pixels, allowing visual overhang while the logical footprint remains unchanged.
+World rendering remains independent from the logical station footprint and uses integer pixel-art scaling:
 
-The source atlas size no longer determines the in-game size. This avoids mixed scale factors and keeps all station geometry, interaction, travel data, and save format unchanged. Procedural drawing remains fallback-only.
+- minecart: 64x64 world pixels (32 -> 64, x2);
+- tracks: 64x64 world pixels per segment (16 -> 64, x4);
+- entrance: 96x96 world pixels (48 -> 96, x2), with visual overhang allowed.
+
+The minecart still occupies exactly one logical tile, and the interaction area, placement geometry, travel data and save format are unchanged. Procedural drawing remains fallback-only if an asset is missing.
