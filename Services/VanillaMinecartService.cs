@@ -9,7 +9,7 @@ namespace MinecartNetwork.Services;
 public sealed class VanillaMinecartService
 {
     private const string MinecartAssetName = "Data/Minecarts";
-    private const string DefaultNetworkId = "Default";
+    public const string DefaultNetworkId = "Default";
 
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
@@ -22,11 +22,13 @@ public sealed class VanillaMinecartService
         this.regions = regions;
     }
 
-    public bool IsDefaultNetworkUnlocked()
+    public bool IsDefaultNetworkUnlocked() => this.IsNetworkUnlocked(DefaultNetworkId);
+
+    public bool IsNetworkUnlocked(string networkId)
     {
         try
         {
-            object? network = this.GetNetwork(DefaultNetworkId);
+            object? network = this.GetNetwork(networkId);
             if (network is null)
                 return false;
 
@@ -35,18 +37,39 @@ public sealed class VanillaMinecartService
         }
         catch (Exception ex)
         {
-            this.monitor.Log($"Failed checking vanilla minecart unlock state: {ex}", LogLevel.Warn);
+            this.monitor.Log($"Failed checking minecart network '{networkId}' unlock state: {ex}", LogLevel.Warn);
             return false;
         }
     }
 
+    public IReadOnlyList<string> GetNetworkIds()
+    {
+        try
+        {
+            return this.EnumerateNetworks()
+                .Select(entry => entry.Id)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            this.monitor.Log($"Failed reading minecart network IDs from {MinecartAssetName}: {ex}", LogLevel.Warn);
+            return Array.Empty<string>();
+        }
+    }
+
     public IReadOnlyList<VanillaMinecartDestination> GetAvailableDefaultDestinations()
+        => this.GetAvailableDestinations(DefaultNetworkId);
+
+    public IReadOnlyList<VanillaMinecartDestination> GetAvailableDestinations(string networkId)
     {
         var result = new List<VanillaMinecartDestination>();
 
         try
         {
-            object? network = this.GetNetwork(DefaultNetworkId);
+            object? network = this.GetNetwork(networkId);
             if (network is null)
                 return result;
 
@@ -54,68 +77,77 @@ public sealed class VanillaMinecartService
             if (!string.IsNullOrWhiteSpace(unlockCondition) && !GameStateQuery.CheckConditions(unlockCondition))
                 return result;
 
-            object? destinationsValue = this.GetMemberValue(network, "Destinations");
-            if (destinationsValue is not IEnumerable destinations)
-                return result;
-
-            foreach (object? rawDestination in destinations)
+            foreach (object rawDestination in this.GetRawDestinations(network))
             {
-                if (rawDestination is null)
-                    continue;
-
-                string? condition = this.GetString(rawDestination, "Condition");
-                if (!string.IsNullOrWhiteSpace(condition) && !GameStateQuery.CheckConditions(condition))
+                if (!this.IsDestinationAvailable(rawDestination))
                     continue;
 
                 int price = this.GetInt(rawDestination, "Price") ?? 0;
                 if (price > 0)
                 {
                     this.monitor.Log(
-                        $"Skipping priced minecart destination '{this.GetString(rawDestination, "Id") ?? "unknown"}' in the unified menu for now.",
+                        $"Skipping priced minecart destination '{this.GetString(rawDestination, "Id") ?? "unknown"}' from network '{networkId}' in the unified menu.",
                         LogLevel.Trace
                     );
                     continue;
                 }
 
-                string id = this.GetString(rawDestination, "Id") ?? "Unknown";
-                string targetLocation = this.GetString(rawDestination, "TargetLocation") ?? "";
-                object? targetTile = this.GetMemberValue(rawDestination, "TargetTile");
-                int tileX = targetTile is null ? 0 : this.GetInt(targetTile, "X") ?? 0;
-                int tileY = targetTile is null ? 0 : this.GetInt(targetTile, "Y") ?? 0;
-                int direction = this.ParseDirection(this.GetMemberValue(rawDestination, "TargetDirection"));
-
-                if (string.IsNullOrWhiteSpace(targetLocation))
-                    continue;
-
-                result.Add(new VanillaMinecartDestination
-                {
-                    Id = id,
-                    Name = this.GetDisplayName(id, targetLocation),
-                    Category = this.regions.GetCategoryForDestination(id, targetLocation),
-                    TargetLocation = targetLocation,
-                    TargetTileX = tileX,
-                    TargetTileY = tileY,
-                    TargetDirection = direction
-                });
+                VanillaMinecartDestination? destination = this.CreateDestination(networkId, rawDestination);
+                if (destination is not null)
+                    result.Add(destination);
             }
         }
         catch (Exception ex)
         {
-            this.monitor.Log($"Failed reading vanilla minecart destinations from {MinecartAssetName}: {ex}", LogLevel.Warn);
+            this.monitor.Log($"Failed reading minecart network '{networkId}' from {MinecartAssetName}: {ex}", LogLevel.Warn);
         }
 
         return result;
     }
 
+    public bool HasAvailablePricedDestinations(string networkId)
+    {
+        try
+        {
+            object? network = this.GetNetwork(networkId);
+            if (network is null)
+                return false;
+
+            string? unlockCondition = this.GetString(network, "UnlockCondition");
+            if (!string.IsNullOrWhiteSpace(unlockCondition) && !GameStateQuery.CheckConditions(unlockCondition))
+                return false;
+
+            return this.GetRawDestinations(network)
+                .Any(destination => this.IsDestinationAvailable(destination)
+                    && (this.GetInt(destination, "Price") ?? 0) > 0);
+        }
+        catch (Exception ex)
+        {
+            this.monitor.Log($"Failed checking priced destinations for minecart network '{networkId}': {ex}", LogLevel.Warn);
+            return true;
+        }
+    }
+
     public string GetDisplayName(string? destinationId)
+        => this.GetDisplayName(DefaultNetworkId, destinationId);
+
+    public string GetDisplayName(string networkId, string? destinationId)
     {
         if (string.IsNullOrWhiteSpace(destinationId))
-            return this.helper.Translation.Get("vanilla.minecart");
+            return this.GetNetworkDisplayName(networkId);
 
-        VanillaMinecartDestination? destination = this.GetAvailableDefaultDestinations()
+        VanillaMinecartDestination? destination = this.GetAvailableDestinations(networkId)
             .FirstOrDefault(entry => entry.Id.Equals(destinationId, StringComparison.OrdinalIgnoreCase));
 
-        return destination?.Name ?? this.GetDisplayName(destinationId, destinationId);
+        return destination?.Name ?? this.GetFallbackDisplayName(destinationId, destinationId);
+    }
+
+    public string GetNetworkDisplayName(string networkId)
+    {
+        if (networkId.Equals(DefaultNetworkId, StringComparison.OrdinalIgnoreCase))
+            return this.helper.Translation.Get("vanilla.minecart");
+
+        return this.regions.HumanizeIdentifier(networkId);
     }
 
     public bool TryWarp(VanillaMinecartDestination destination, out string? error)
@@ -148,20 +180,111 @@ public sealed class VanillaMinecartService
         catch (Exception ex)
         {
             error = ex.Message;
-            this.monitor.Log($"Failed to warp to vanilla minecart destination '{destination.Id}': {ex}", LogLevel.Error);
+            this.monitor.Log(
+                $"Failed to warp to minecart destination '{destination.NetworkId}/{destination.Id}': {ex}",
+                LogLevel.Error
+            );
             return false;
+        }
+    }
+
+    private VanillaMinecartDestination? CreateDestination(string networkId, object rawDestination)
+    {
+        string id = this.GetString(rawDestination, "Id") ?? "Unknown";
+        string targetLocation = this.GetString(rawDestination, "TargetLocation") ?? "";
+        object? targetTile = this.GetMemberValue(rawDestination, "TargetTile");
+        int tileX = targetTile is null ? 0 : this.GetInt(targetTile, "X") ?? 0;
+        int tileY = targetTile is null ? 0 : this.GetInt(targetTile, "Y") ?? 0;
+        int direction = this.ParseDirection(this.GetMemberValue(rawDestination, "TargetDirection"));
+
+        if (string.IsNullOrWhiteSpace(targetLocation))
+            return null;
+
+        string? rawDisplayName = this.GetString(rawDestination, "DisplayName");
+        string displayName = this.GetFallbackDisplayName(id, targetLocation);
+        if (!string.IsNullOrWhiteSpace(rawDisplayName)
+            && !rawDisplayName.TrimStart().StartsWith('[', StringComparison.Ordinal))
+        {
+            displayName = rawDisplayName.Trim();
+        }
+
+        return new VanillaMinecartDestination
+        {
+            NetworkId = networkId,
+            Id = id,
+            Name = displayName,
+            Category = this.regions.GetCategoryForDestination(id, targetLocation),
+            TargetLocation = targetLocation,
+            TargetTileX = tileX,
+            TargetTileY = tileY,
+            TargetDirection = direction
+        };
+    }
+
+    private bool IsDestinationAvailable(object rawDestination)
+    {
+        string? condition = this.GetString(rawDestination, "Condition");
+        return string.IsNullOrWhiteSpace(condition) || GameStateQuery.CheckConditions(condition);
+    }
+
+    private IEnumerable<object> GetRawDestinations(object network)
+    {
+        object? destinationsValue = this.GetMemberValue(network, "Destinations");
+        if (destinationsValue is null)
+            yield break;
+
+        if (destinationsValue is IDictionary dictionary)
+        {
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                if (entry.Value is not null)
+                    yield return entry.Value;
+            }
+            yield break;
+        }
+
+        if (destinationsValue is not IEnumerable destinations)
+            yield break;
+
+        foreach (object? entry in destinations)
+        {
+            if (entry is null)
+                continue;
+
+            object? value = this.GetMemberValue(entry, "Value");
+            yield return value ?? entry;
         }
     }
 
     private object? GetNetwork(string networkId)
     {
+        foreach ((string Id, object Network) entry in this.EnumerateNetworks())
+        {
+            if (entry.Id.Equals(networkId, StringComparison.OrdinalIgnoreCase))
+                return entry.Network;
+        }
+
+        return null;
+    }
+
+    private IEnumerable<(string Id, object Network)> EnumerateNetworks()
+    {
         object data = this.helper.GameContent.Load<object>(MinecartAssetName);
 
         if (data is IDictionary dictionary)
-            return dictionary.Contains(networkId) ? dictionary[networkId] : null;
+        {
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                if (entry.Key is null || entry.Value is null)
+                    continue;
+
+                yield return (entry.Key.ToString() ?? "", entry.Value);
+            }
+            yield break;
+        }
 
         if (data is not IEnumerable entries)
-            return null;
+            yield break;
 
         foreach (object? entry in entries)
         {
@@ -169,16 +292,15 @@ public sealed class VanillaMinecartService
                 continue;
 
             object? key = this.GetMemberValue(entry, "Key");
-            if (!string.Equals(key?.ToString(), networkId, StringComparison.OrdinalIgnoreCase))
+            object? value = this.GetMemberValue(entry, "Value");
+            if (key is null || value is null)
                 continue;
 
-            return this.GetMemberValue(entry, "Value");
+            yield return (key.ToString() ?? "", value);
         }
-
-        return null;
     }
 
-    private string GetDisplayName(string id, string targetLocation)
+    private string GetFallbackDisplayName(string id, string targetLocation)
     {
         string key = id.ToLowerInvariant() switch
         {
