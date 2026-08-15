@@ -11,9 +11,9 @@ using StardewValley;
 namespace MinecartNetwork.Patches;
 
 /// <summary>
-/// Draw placed custom stations immediately before the local farmer so the minecart always remains
-/// behind the player when their sprites overlap. This deliberately avoids depth flipping while
-/// moving around the cart. Placement previews still use RenderedWorld.
+/// Render placed stations around the local farmer. Entrance and rails stay in the background,
+/// while the minecart uses its one-tile collision footprint as a furniture-style depth boundary:
+/// the player covers it when standing in front, and the cart covers the player when standing behind.
 /// </summary>
 internal static class StationDepthRenderPatch
 {
@@ -60,13 +60,19 @@ internal static class StationDepthRenderPatch
         if (!ShouldHandleFarmer(__instance))
             return;
 
+        // Draw the complete station first. This keeps rails and the wall entrance behind the farmer,
+        // and also provides the cart's background pass when the farmer is standing in front of it.
         DrawPlacedStations(__0);
     }
 
     public static void Postfix(Farmer __instance, SpriteBatch __0)
     {
-        // Intentionally empty. Placed station sprites are always drawn before the local player,
-        // so the minecart can never flip to the foreground while the player moves around it.
+        if (!ShouldHandleFarmer(__instance))
+            return;
+
+        // Furniture-style second pass: only redraw carts whose one-tile footprint is in front of
+        // the farmer. Passing false/false renders just the cart, with no duplicate rails/entrance.
+        DrawForegroundMinecarts(__0, __instance);
     }
 
     public static void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
@@ -141,14 +147,8 @@ internal static class StationDepthRenderPatch
 
             foreach (MinecartStation station in stations.Stations)
             {
-                if (!station.IsEnabled
-                    || !station.HasPhysicalMinecart
-                    || !station.LocationName.Equals(
-                        locationName,
-                        StringComparison.OrdinalIgnoreCase))
-                {
+                if (!IsVisibleStation(station, locationName))
                     continue;
-                }
 
                 DrawStation(
                     batch,
@@ -167,6 +167,57 @@ internal static class StationDepthRenderPatch
         {
             LogRenderError(ex);
         }
+    }
+
+    private static void DrawForegroundMinecarts(SpriteBatch batch, Farmer farmer)
+    {
+        if (stations is null || drawStationMethod is null)
+            return;
+
+        try
+        {
+            string locationName = Game1.currentLocation.NameOrUniqueName;
+            int farmerDepth = farmer.GetBoundingBox().Bottom;
+
+            foreach (MinecartStation station in stations.Stations)
+            {
+                if (!IsVisibleStation(station, locationName))
+                    continue;
+
+                Rectangle furnitureBounds = StationGeometry.GetCartCollisionBounds(
+                    station.VisualTileX!.Value,
+                    station.VisualTileY!.Value
+                );
+
+                // Same visual rule as a normal floor furniture piece: its base controls depth.
+                // If the farmer's feet are above that base, the farmer is behind the cart.
+                if (farmerDepth >= furnitureBounds.Bottom)
+                    continue;
+
+                DrawStation(
+                    batch,
+                    station.VisualTileX.Value,
+                    station.VisualTileY.Value,
+                    station.StationDirection,
+                    station.TrackLength,
+                    hasTracks: false,
+                    hasWallHole: false,
+                    1f,
+                    false
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            LogRenderError(ex);
+        }
+    }
+
+    private static bool IsVisibleStation(MinecartStation station, string locationName)
+    {
+        return station.IsEnabled
+            && station.HasPhysicalMinecart
+            && station.LocationName.Equals(locationName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void DrawStation(
@@ -207,7 +258,7 @@ internal static class StationDepthRenderPatch
 
         renderErrorLogged = true;
         monitor?.Log(
-            $"Station render ordering failed; this error will only be logged once. {ex}",
+            $"Station furniture-style rendering failed; this error will only be logged once. {ex}",
             LogLevel.Error
         );
     }
