@@ -266,7 +266,9 @@ public sealed class PlacementManager
 
     public Point GetPreviewTile()
     {
-        Vector2 tile = this.helper.Input.GetCursorPosition().GrabTile;
+        // Use the actual cursor tile instead of GrabTile. GrabTile is constrained by the
+        // player's interaction reach, which makes the preview cling to the farmer while testing.
+        Vector2 tile = this.helper.Input.GetCursorPosition().Tile;
         return new Point((int)tile.X, (int)tile.Y);
     }
 
