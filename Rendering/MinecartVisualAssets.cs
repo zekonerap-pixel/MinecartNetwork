@@ -24,7 +24,7 @@ public sealed class MinecartVisualAssets
     public const int TrackAtlasHeight = TrackFrameSize;
 
     private readonly IModHelper helper;
-    private readonly IMonitor monitor;
+    private readonly IMonitor? monitor;
 
     private readonly Dictionary<string, Texture2D> minecartVariants = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Texture2D> trackVariants = new(StringComparer.OrdinalIgnoreCase);
@@ -35,7 +35,7 @@ public sealed class MinecartVisualAssets
     private Texture2D? wallHole;
     private bool loaded;
 
-    public MinecartVisualAssets(IModHelper helper, IMonitor monitor)
+    public MinecartVisualAssets(IModHelper helper, IMonitor? monitor = null)
     {
         this.helper = helper;
         this.monitor = monitor;
@@ -209,7 +209,7 @@ public sealed class MinecartVisualAssets
                     && this.entranceVariants.ContainsKey(style)))
         );
 
-        this.monitor.Log(
+        this.monitor?.Log(
             $"Station visual styles recognized: {loadedStyles}.",
             LogLevel.Debug
         );
@@ -246,7 +246,7 @@ public sealed class MinecartVisualAssets
 
         if (!File.Exists(diskPath))
         {
-            this.monitor.Log(
+            this.monitor?.Log(
                 $"Station visual asset not found for {label}: {relativePath}",
                 LogLevel.Warn
             );
@@ -258,7 +258,7 @@ public sealed class MinecartVisualAssets
             Texture2D texture = this.helper.ModContent.Load<Texture2D>(relativePath);
             if (texture.Width != expectedWidth || texture.Height != expectedHeight)
             {
-                this.monitor.Log(
+                this.monitor?.Log(
                     $"Ignoring station visual asset '{relativePath}': expected {expectedWidth}x{expectedHeight}, got {texture.Width}x{texture.Height}.",
                     LogLevel.Warn
                 );
@@ -269,7 +269,7 @@ public sealed class MinecartVisualAssets
         }
         catch (Exception ex)
         {
-            this.monitor.Log(
+            this.monitor?.Log(
                 $"Couldn't load station visual asset '{relativePath}': {ex.Message}",
                 LogLevel.Warn
             );
@@ -292,7 +292,7 @@ public sealed class MinecartVisualAssets
         if (variants.TryGetValue(style, out Texture2D? texture))
             return texture;
 
-        this.monitor.Log(
+        this.monitor?.Log(
             $"Station visual style '{style}' isn't available for this asset; using the current sprite instead.",
             LogLevel.Trace
         );
