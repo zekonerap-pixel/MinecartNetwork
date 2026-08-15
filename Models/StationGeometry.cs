@@ -9,6 +9,8 @@ public static class StationGeometry
     public const int MaxTrackLength = 8;
     public const int DefaultTrackLength = 2;
 
+    private const int CartCollisionWidth = 128;
+    private const int CartCollisionDepth = 64;
     private const int EntranceCollisionSpan = 56;
     private const int EntranceCollisionThickness = 20;
 
@@ -28,8 +30,8 @@ public static class StationGeometry
     }
 
     /// <summary>
-    /// Get the logical minecart footprint. The cart always occupies exactly one tile;
-    /// its artwork may overhang that tile without affecting construction geometry.
+    /// Get the logical minecart footprint. The station origin remains exactly one tile;
+    /// its larger physical furniture-style hitbox is exposed separately by GetCartCollisionBounds.
     /// </summary>
     public static IReadOnlyList<Point> GetCartTiles(int tileX, int tileY, int direction)
         => new[] { new Point(tileX, tileY) };
@@ -110,11 +112,20 @@ public static class StationGeometry
     }
 
     /// <summary>
-    /// Furniture-like physical footprint for the minecart. The artwork is 128x128, but the cart
-    /// behaves like a one-tile Stardew furniture piece for collision and depth sorting.
+    /// Furniture-style physical cart footprint: two tiles wide by one tile deep, centered on the
+    /// logical cart tile and anchored to its bottom edge. The 128px-tall artwork may extend upward
+    /// without turning that visual height into collision.
     /// </summary>
     public static Rectangle GetCartCollisionBounds(int tileX, int tileY)
-        => GetCartPixelBounds(tileX, tileY, 0);
+    {
+        Rectangle tile = GetCartPixelBounds(tileX, tileY, 0);
+        return new Rectangle(
+            tile.Center.X - CartCollisionWidth / 2,
+            tile.Bottom - CartCollisionDepth,
+            CartCollisionWidth,
+            CartCollisionDepth
+        );
+    }
 
     /// <summary>
     /// Physical collision for the mine entrance. It hugs the back edge of the logical hole tile,
@@ -131,38 +142,30 @@ public static class StationGeometry
 
         return NormalizeDirection(direction) switch
         {
-            // Facing up => tunnel is behind the cart toward +Y, so its wall plane is the bottom edge.
             0 => new Rectangle(
                 tile.Center.X - EntranceCollisionSpan / 2,
                 tile.Bottom - EntranceCollisionThickness,
                 EntranceCollisionSpan,
                 EntranceCollisionThickness
             ),
-
-            // Facing right => tunnel is behind the cart toward -X.
             1 => new Rectangle(
                 tile.Left,
                 tile.Center.Y - EntranceCollisionSpan / 2,
                 EntranceCollisionThickness,
                 EntranceCollisionSpan
             ),
-
-            // Facing down => tunnel is behind the cart toward -Y.
             2 => new Rectangle(
                 tile.Center.X - EntranceCollisionSpan / 2,
                 tile.Top,
                 EntranceCollisionSpan,
                 EntranceCollisionThickness
             ),
-
-            // Facing left => tunnel is behind the cart toward +X.
             3 => new Rectangle(
                 tile.Right - EntranceCollisionThickness,
                 tile.Center.Y - EntranceCollisionSpan / 2,
                 EntranceCollisionThickness,
                 EntranceCollisionSpan
             ),
-
             _ => Rectangle.Empty
         };
     }
