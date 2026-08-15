@@ -1,4 +1,6 @@
+using System.Reflection;
 using HarmonyLib;
+using Microsoft.Xna.Framework;
 using MinecartNetwork.Commands;
 using MinecartNetwork.Menus;
 using MinecartNetwork.Patches;
@@ -90,9 +92,56 @@ public sealed class ModEntry : Mod
 
     private void ApplyHarmonyPatches()
     {
+        var harmony = new Harmony(this.ModManifest.UniqueID);
+
+        this.ApplyStationCollisionPatches(harmony);
+        this.ApplyVanillaMinecartPatch(harmony);
+    }
+
+    private void ApplyStationCollisionPatches(Harmony harmony)
+    {
+        StationCollisionPatch.Configure(this.Monitor, this.StationManager);
+
+        List<MethodInfo> collisionMethods = typeof(GameLocation)
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Where(method => method.Name == "isCollidingPosition" && method.ReturnType == typeof(bool))
+            .Where(method =>
+            {
+                ParameterInfo[] parameters = method.GetParameters();
+                return parameters.Any(parameter =>
+                        parameter.Name == "position" && parameter.ParameterType == typeof(Rectangle))
+                    && parameters.Any(parameter =>
+                        parameter.Name == "isFarmer" && parameter.ParameterType == typeof(bool));
+            })
+            .ToList();
+
+        if (collisionMethods.Count == 0)
+        {
+            this.Monitor.Log(
+                "Couldn't find GameLocation.isCollidingPosition with farmer collision arguments; custom station collisions are disabled.",
+                LogLevel.Warn
+            );
+            return;
+        }
+
+        HarmonyMethod postfix = new(
+            typeof(StationCollisionPatch),
+            nameof(StationCollisionPatch.Postfix)
+        );
+
+        foreach (MethodInfo method in collisionMethods)
+            harmony.Patch(method, postfix: postfix);
+
+        this.Monitor.Log(
+            $"Enabled Minecart Network physical collisions on {collisionMethods.Count} GameLocation collision method(s).",
+            LogLevel.Debug
+        );
+    }
+
+    private void ApplyVanillaMinecartPatch(Harmony harmony)
+    {
         VanillaMinecartPatch.Configure(this.Monitor, this.TryOpenVanillaMinecartMenu);
 
-        var harmony = new Harmony(this.ModManifest.UniqueID);
         var original = AccessTools.Method(
             typeof(GameLocation),
             nameof(GameLocation.ShowMineCartMenu),
