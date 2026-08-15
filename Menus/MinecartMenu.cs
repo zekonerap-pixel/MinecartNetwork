@@ -14,30 +14,30 @@ public sealed class MinecartMenu : IClickableMenu
     private const int PreferredMenuWidth = 760;
     private const int PreferredMenuHeight = 620;
     private const int ViewportMargin = 48;
-    private const int HeaderHeight = 56;
-    private const int StationHeight = 52;
-    private const int RowGap = 7;
+    private const int HeaderHeight = 54;
+    private const int StationHeight = 46;
+    private const int RowGap = 8;
     private const int ScrollStep = 96;
-    private const int ScrollBarWidth = 12;
+    private const int ScrollBarWidth = 18;
     private const int ScrollBarMinThumbHeight = 30;
 
     // Same local text treatment used by AutomateChestFilters. These values affect only this menu.
     private const float TitleScale = 1f;
-    private const float OriginScale = 0.94f;
-    private const float CategoryScale = 0.94f;
-    private const float DestinationScale = 1f;
-    private const float EditButtonScale = 0.90f;
+    private const float OriginScale = 0.85f;
+    private const float CategoryScale = 0.90f;
+    private const float DestinationScale = 0.90f;
+    private const float EditButtonScale = 0.85f;
     private const float FooterScale = 0.86f;
 
     private static readonly Rectangle MenuBoxSource = new(0, 256, 60, 60);
-    private static readonly Color SubtleTextColor = new(120, 78, 48);
-    private static readonly Color CategoryFill = new(255, 229, 165);
-    private static readonly Color CategoryHoverFill = new(255, 214, 125);
-    private static readonly Color DestinationFill = new(255, 247, 211);
-    private static readonly Color DestinationHoverFill = new(255, 235, 176);
-    private static readonly Color AccentColor = new(170, 103, 53);
-    private static readonly Color ScrollTrackColor = new(117, 73, 45);
-    private static readonly Color ScrollThumbColor = new(224, 168, 83);
+    private static readonly Color SubtleTextColor = new(119, 79, 48);
+    private static readonly Color CategoryFill = new(246, 177, 74);
+    private static readonly Color CategoryHoverFill = new(255, 195, 98);
+    private static readonly Color DestinationFill = new(240, 231, 201);
+    private static readonly Color DestinationHoverFill = new(247, 238, 210);
+    private static readonly Color OriginFill = new(242, 233, 199);
+    private static readonly Color ScrollTrackColor = new(188, 140, 83);
+    private static readonly Color ScrollThumbColor = new(233, 197, 127);
 
     private static SpriteFont MenuFont => Game1.smallFont;
     private static SpriteFont MenuTitleFont => Game1.dialogueFont;
@@ -212,16 +212,16 @@ public sealed class MinecartMenu : IClickableMenu
             this.xPositionOnScreen + 32,
             this.yPositionOnScreen + 76,
             this.width - 64,
-            48
+            46
         );
-        this.DrawVanillaBox(b, originPanel, new Color(255, 245, 210), drawShadow: false);
+        this.DrawVanillaBox(b, originPanel, OriginFill, drawShadow: false);
         this.DrawLeftCenteredScaledText(
             b,
             new Rectangle(originPanel.X + 12, originPanel.Y, originPanel.Width - 24, originPanel.Height),
             this.helper.Translation.Get("menu.origin", new { name = this.originName }),
             MenuFont,
             OriginScale,
-            0.78f,
+            0.76f,
             SubtleTextColor
         );
 
@@ -279,7 +279,7 @@ public sealed class MinecartMenu : IClickableMenu
         return Math.Min(PreferredMenuHeight, available);
     }
 
-    private int ContentTop => this.yPositionOnScreen + 136;
+    private int ContentTop => this.yPositionOnScreen + 134;
     private int ContentBottom => this.yPositionOnScreen + this.height - 86;
     private int ContentHeight => Math.Max(1, this.ContentBottom - this.ContentTop);
     private Rectangle ContentBounds => new(
@@ -290,7 +290,7 @@ public sealed class MinecartMenu : IClickableMenu
     );
 
     private Rectangle ScrollBarTrack => new(
-        this.xPositionOnScreen + this.width - 28,
+        this.xPositionOnScreen + this.width - 32,
         this.ContentTop + 6,
         ScrollBarWidth,
         Math.Max(1, this.ContentHeight - 12)
@@ -365,7 +365,7 @@ public sealed class MinecartMenu : IClickableMenu
 
         int y = this.ContentTop - this.scrollOffset;
         int x = this.xPositionOnScreen + 36;
-        int scrollPadding = this.maxScroll > 0 ? 24 : 0;
+        int scrollPadding = this.maxScroll > 0 ? 32 : 0;
         int rowWidth = Math.Max(1, this.width - 72 - scrollPadding);
 
         foreach (MenuGroup group in this.destinationGroups)
@@ -595,7 +595,8 @@ public sealed class MinecartMenu : IClickableMenu
     private void DrawScrollBar(SpriteBatch b)
     {
         Rectangle track = this.ScrollBarTrack;
-        this.Fill(b, track, ScrollTrackColor * 0.45f);
+        Rectangle trackBox = new(track.X - 3, track.Y, track.Width + 6, track.Height);
+        this.DrawVanillaBox(b, trackBox, ScrollTrackColor, drawShadow: false, scale: 0.40f);
 
         int thumbHeight = this.GetScrollThumbHeight();
         int travel = Math.Max(0, track.Height - thumbHeight);
@@ -603,9 +604,8 @@ public sealed class MinecartMenu : IClickableMenu
         if (this.maxScroll > 0 && travel > 0)
             thumbY += (int)Math.Round(travel * (this.scrollOffset / (double)this.maxScroll));
 
-        Rectangle thumb = new(track.X, thumbY, track.Width, thumbHeight);
-        this.Fill(b, thumb, ScrollThumbColor);
-        this.Outline(b, thumb, AccentColor, 2);
+        Rectangle thumb = new(track.X - 1, thumbY, track.Width + 2, thumbHeight);
+        this.DrawVanillaBox(b, thumb, ScrollThumbColor, drawShadow: true, scale: 0.34f);
     }
 
     private void DrawScrollHint(SpriteBatch b)
@@ -661,8 +661,12 @@ public sealed class MinecartMenu : IClickableMenu
         bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
 
-        this.Fill(b, row.Bounds, highlighted ? DestinationHoverFill : DestinationFill);
-        this.Outline(b, row.Bounds, highlighted ? AccentColor : new Color(205, 160, 105), highlighted ? 2 : 1);
+        this.DrawVanillaBox(
+            b,
+            row.Bounds,
+            highlighted ? DestinationHoverFill : DestinationFill,
+            drawShadow: highlighted
+        );
 
         this.DrawLeftCenteredScaledText(
             b,
@@ -670,8 +674,9 @@ public sealed class MinecartMenu : IClickableMenu
             row.Destination!.Name,
             MenuFont,
             DestinationScale,
-            0.80f,
-            Game1.textColor
+            0.78f,
+            Game1.textColor,
+            drawShadow: highlighted
         );
     }
 
@@ -694,11 +699,17 @@ public sealed class MinecartMenu : IClickableMenu
             MenuFont,
             EditButtonScale,
             0.72f,
-            Game1.textColor
+            Game1.textColor,
+            drawShadow: highlighted
         );
     }
 
-    private void DrawVanillaBox(SpriteBatch b, Rectangle bounds, Color tint, bool drawShadow)
+    private void DrawVanillaBox(
+        SpriteBatch b,
+        Rectangle bounds,
+        Color tint,
+        bool drawShadow,
+        float scale = 1f)
     {
         IClickableMenu.drawTextureBox(
             b,
@@ -709,7 +720,7 @@ public sealed class MinecartMenu : IClickableMenu
             bounds.Width,
             bounds.Height,
             tint,
-            1f,
+            scale,
             drawShadow
         );
     }
@@ -825,17 +836,6 @@ public sealed class MinecartMenu : IClickableMenu
         }
 
         return text[..low].TrimEnd() + suffix;
-    }
-
-    private void Fill(SpriteBatch batch, Rectangle rectangle, Color color)
-        => batch.Draw(Game1.staminaRect, rectangle, color);
-
-    private void Outline(SpriteBatch batch, Rectangle rectangle, Color color, int thickness)
-    {
-        this.Fill(batch, new Rectangle(rectangle.X, rectangle.Y, rectangle.Width, thickness), color);
-        this.Fill(batch, new Rectangle(rectangle.X, rectangle.Bottom - thickness, rectangle.Width, thickness), color);
-        this.Fill(batch, new Rectangle(rectangle.X, rectangle.Y, thickness, rectangle.Height), color);
-        this.Fill(batch, new Rectangle(rectangle.Right - thickness, rectangle.Y, thickness, rectangle.Height), color);
     }
 
     private sealed record MenuDestination(
