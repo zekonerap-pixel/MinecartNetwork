@@ -39,6 +39,10 @@ internal static class GenericModConfigMenuIntegration
             ModConfig.MenuStyleBasic
         };
 
+        // Discover complete sprite sets from assets/styles so adding a valid folder automatically
+        // makes it available in all three independent selectors.
+        string[] stationStyles = MinecartVisualAssets.GetAvailableStyles(helper);
+
         api.AddTextOption(
             manifest,
             getValue: () => ModConfig.NormalizeMenuStyle(getConfig().MenuStyle),
@@ -63,7 +67,7 @@ internal static class GenericModConfigMenuIntegration
             },
             name: () => helper.Translation.Get("config.minecart-style.name").ToString(),
             tooltip: () => helper.Translation.Get("config.minecart-style.tooltip").ToString(),
-            allowedValues: ModConfig.StationVisualStyles,
+            allowedValues: stationStyles,
             formatAllowedValue: value => FormatStationStyle(helper, value),
             fieldId: "MinecartVisualStyle"
         );
@@ -79,7 +83,7 @@ internal static class GenericModConfigMenuIntegration
             },
             name: () => helper.Translation.Get("config.entrance-style.name").ToString(),
             tooltip: () => helper.Translation.Get("config.entrance-style.tooltip").ToString(),
-            allowedValues: ModConfig.StationVisualStyles,
+            allowedValues: stationStyles,
             formatAllowedValue: value => FormatStationStyle(helper, value),
             fieldId: "EntranceVisualStyle"
         );
@@ -95,7 +99,7 @@ internal static class GenericModConfigMenuIntegration
             },
             name: () => helper.Translation.Get("config.track-style.name").ToString(),
             tooltip: () => helper.Translation.Get("config.track-style.tooltip").ToString(),
-            allowedValues: ModConfig.StationVisualStyles,
+            allowedValues: stationStyles,
             formatAllowedValue: value => FormatStationStyle(helper, value),
             fieldId: "TrackVisualStyle"
         );
@@ -103,8 +107,10 @@ internal static class GenericModConfigMenuIntegration
 
     private static string FormatStationStyle(IModHelper helper, string value)
     {
-        string key = ModConfig.NormalizeStationVisualStyle(value) switch
+        string normalized = ModConfig.NormalizeStationVisualStyle(value);
+        string? key = normalized switch
         {
+            ModConfig.StationVisualLegacyCurrent => "config.station-style.current",
             ModConfig.StationVisualIndustrial => "config.station-style.industrial",
             ModConfig.StationVisualRustic => "config.station-style.rustic",
             ModConfig.StationVisualMiner => "config.station-style.miner",
@@ -112,9 +118,11 @@ internal static class GenericModConfigMenuIntegration
             ModConfig.StationVisualDarkIron => "config.station-style.dark-iron",
             ModConfig.StationVisualMoss => "config.station-style.moss",
             ModConfig.StationVisualCrystal => "config.station-style.crystal",
-            _ => "config.station-style.current"
+            _ => null
         };
 
-        return helper.Translation.Get(key).ToString();
+        return key is null
+            ? normalized
+            : helper.Translation.Get(key).ToString();
     }
 }
