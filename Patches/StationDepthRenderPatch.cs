@@ -11,9 +11,9 @@ using StardewValley;
 namespace MinecartNetwork.Patches;
 
 /// <summary>
-/// Draw placed custom stations immediately before or after the local farmer based on their
-/// world-space base Y. This mimics Stardew's building-style front/back relationship instead of
-/// drawing every station as a late RenderedWorld overlay on top of the player.
+/// Draw placed custom stations immediately before the local farmer so the minecart always remains
+/// behind the player when their sprites overlap. This deliberately avoids depth flipping while
+/// moving around the cart. Placement previews still use RenderedWorld.
 /// </summary>
 internal static class StationDepthRenderPatch
 {
@@ -60,15 +60,13 @@ internal static class StationDepthRenderPatch
         if (!ShouldHandleFarmer(__instance))
             return;
 
-        DrawPlacedStations(__0, __instance, drawAfterFarmer: false);
+        DrawPlacedStations(__0);
     }
 
     public static void Postfix(Farmer __instance, SpriteBatch __0)
     {
-        if (!ShouldHandleFarmer(__instance))
-            return;
-
-        DrawPlacedStations(__0, __instance, drawAfterFarmer: true);
+        // Intentionally empty. Placed station sprites are always drawn before the local player,
+        // so the minecart can never flip to the foreground while the player moves around it.
     }
 
     public static void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
@@ -132,10 +130,7 @@ internal static class StationDepthRenderPatch
             && ReferenceEquals(farmer, Game1.player);
     }
 
-    private static void DrawPlacedStations(
-        SpriteBatch batch,
-        Farmer farmer,
-        bool drawAfterFarmer)
+    private static void DrawPlacedStations(SpriteBatch batch)
     {
         if (stations is null || drawStationMethod is null)
             return;
@@ -143,7 +138,6 @@ internal static class StationDepthRenderPatch
         try
         {
             string locationName = Game1.currentLocation.NameOrUniqueName;
-            int farmerDepth = farmer.GetBoundingBox().Bottom;
 
             foreach (MinecartStation station in stations.Stations)
             {
@@ -156,19 +150,10 @@ internal static class StationDepthRenderPatch
                     continue;
                 }
 
-                int stationDepth = StationGeometry.GetCartCollisionBounds(
-                    station.VisualTileX!.Value,
-                    station.VisualTileY!.Value
-                ).Bottom;
-
-                bool stationShouldDrawAfterFarmer = stationDepth > farmerDepth;
-                if (stationShouldDrawAfterFarmer != drawAfterFarmer)
-                    continue;
-
                 DrawStation(
                     batch,
-                    station.VisualTileX.Value,
-                    station.VisualTileY.Value,
+                    station.VisualTileX!.Value,
+                    station.VisualTileY!.Value,
                     station.StationDirection,
                     station.TrackLength,
                     station.HasTracks,
@@ -222,7 +207,7 @@ internal static class StationDepthRenderPatch
 
         renderErrorLogged = true;
         monitor?.Log(
-            $"Building-style station depth rendering failed; this error will only be logged once. {ex}",
+            $"Station render ordering failed; this error will only be logged once. {ex}",
             LogLevel.Error
         );
     }
