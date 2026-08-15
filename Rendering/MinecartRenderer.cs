@@ -10,29 +10,30 @@ namespace MinecartNetwork.Rendering;
 
 public sealed class MinecartRenderer
 {
-    // World-space sizes are explicit and independent from source atlas resolution.
     private const int MinecartWorldSize = 128;
     private const int EntranceWorldSize = 192;
-
-    // Rails are sunk slightly into the visual ground plane. The cart remains anchored by its
-    // visible lower edge, so its wheels/body read as sitting directly on top of the rails.
     private const int TrackGroundOffsetY = 8;
-
-    // Half a tile of extra rail is drawn toward the tunnel using half of the source frame.
-    // This keeps the pixel scale intact while making the rail visibly disappear into the opening.
     private const int TrackEntranceOverlap = 32;
 
     private readonly IModHelper helper;
     private readonly StationManager stations;
     private readonly PlacementManager placement;
     private readonly MinecartVisualAssets visualAssets;
+    private readonly StationVisualStyleResolver styleResolver;
 
-    public MinecartRenderer(IModHelper helper, StationManager stations, PlacementManager placement)
+    public MinecartRenderer(
+        IModHelper helper,
+        IMonitor monitor,
+        StationManager stations,
+        LocationRegionService regions,
+        PlacementManager placement,
+        ModConfig config)
     {
         this.helper = helper;
         this.stations = stations;
         this.placement = placement;
-        this.visualAssets = new MinecartVisualAssets(helper);
+        this.visualAssets = new MinecartVisualAssets(helper, monitor);
+        this.styleResolver = new StationVisualStyleResolver(helper, regions, config);
     }
 
     public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
@@ -49,17 +50,7 @@ public sealed class MinecartRenderer
                 || !station.LocationName.Equals(locationName, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            this.DrawStation(
-                e.SpriteBatch,
-                station.VisualTileX!.Value,
-                station.VisualTileY!.Value,
-                station.StationDirection,
-                station.TrackLength,
-                station.HasTracks,
-                station.HasWallHole,
-                1f,
-                false
-            );
+            this.DrawStationForStation(e.SpriteBatch, station, 1f, false);
         }
 
         if (!this.placement.IsPlacing || Game1.activeClickableMenu is not null)
@@ -125,6 +116,87 @@ public sealed class MinecartRenderer
         e.SpriteBatch.DrawString(Game1.smallFont, text, new Vector2(30, 28), Color.White);
     }
 
+    internal void DrawStationForStation(
+        SpriteBatch batch,
+        MinecartStation station,
+        float alpha,
+        bool invalid)
+    {
+        if (!station.HasPhysicalMinecart)
+            return;
+
+        ResolvedStationVisualStyles visuals = this.styleResolver.Resolve(station);
+        this.DrawStationCore(
+            batch,
+            station.VisualTileX!.Value,
+            station.VisualTileY!.Value,
+            station.StationDirection,
+            station.TrackLength,
+            station.HasTracks,
+            station.HasWallHole,
+            alpha,
+            invalid,
+            visuals
+        );
+    }
+
+    internal void DrawMinecartForStation(
+        SpriteBatch batch,
+        MinecartStation station,
+        float alpha,
+        bool invalid,
+        float layerDepth)
+    {
+        if (!station.HasPhysicalMinecart)
+            return;
+
+        ResolvedStationVisualStyles visuals = this.styleResolver.Resolve(station);
+        this.DrawMinecartSprite(
+            batch,
+            station.VisualTileX!.Value,
+            station.VisualTileY!.Value,
+            station.StationDirection,
+            visuals.MinecartStyle,
+            alpha,
+            invalid,
+            layerDepth
+        );
+    }
+
+    internal void DrawPlacementPreview(SpriteBatch batch)
+    {
+        if (!this.placement.IsPlacing || !Context.IsWorldReady || Game1.activeClickableMenu is not null)
+            return;
+
+        Point tile = this.placement.GetPreviewTile();
+        bool valid = this.placement.CanPlaceAt(Game1.currentLocation, tile.X, tile.Y, out _);
+
+        this.DrawPlacementFootprint(batch, tile.X, tile.Y, valid);
+        this.DrawStation(
+            batch,
+            tile.X,
+            tile.Y,
+            this.placement.StationDirection,
+            this.placement.TrackLength,
+            this.placement.HasTracks,
+            this.placement.HasWallHole,
+            0.62f,
+            !valid
+        );
+
+        ResolvedStationVisualStyles visuals = this.styleResolver.Resolve(null);
+        this.DrawMinecartSprite(
+            batch,
+            tile.X,
+            tile.Y,
+            this.placement.StationDirection,
+            visuals.MinecartStyle,
+            0.62f,
+            !valid,
+            0.999f
+        );
+    }
+
     private void DrawStation(
         SpriteBatch batch,
         int tileX,
@@ -136,18 +208,43 @@ public sealed class MinecartRenderer
         float alpha,
         bool invalid)
     {
+        this.DrawStationCore(
+            batch,
+            tileX,
+            tileY,
+            direction,
+            trackLength,
+            hasTracks,
+            hasWallHole,
+            alpha,
+            invalid,
+            this.styleResolver.Resolve(null)
+        );
+    }
+
+    private void DrawStationCore(
+        SpriteBatch batch,
+        int tileX,
+        int tileY,
+        int direction,
+        int trackLength,
+        bool hasTracks,
+        bool hasWallHole,
+        float alpha,
+        bool invalid,
+        ResolvedStationVisualStyles visuals)
+    {
         direction = StationGeometry.NormalizeDirection(direction);
         trackLength = Math.Clamp(trackLength, StationGeometry.MinTrackLength, StationGeometry.MaxTrackLength);
         Color tint = (invalid ? new Color(255, 105, 105) : Color.White) * alpha;
 
-        // Back-to-front draw order: entrance, rails, cart.
         if (hasWallHole)
         {
             int effectiveLength = hasTracks ? trackLength : 0;
             IReadOnlyList<Point> holeTiles = StationGeometry.GetHoleTiles(tileX, tileY, direction, effectiveLength);
             Rectangle logicalHole = this.GetScreenBounds(holeTiles);
             Rectangle entranceBounds = this.GetEntranceSpriteBounds(logicalHole, direction);
-            Texture2D? entrance = this.visualAssets.WallHole;
+            Texture2D? entrance = this.visualAssets.GetWallHole(visuals.EntranceStyle);
 
             if (entrance is not null)
             {
@@ -167,7 +264,7 @@ public sealed class MinecartRenderer
 
         if (hasTracks)
         {
-            Texture2D? tracks = this.visualAssets.Tracks;
+            Texture2D? tracks = this.visualAssets.GetTracks(visuals.TrackStyle);
             Rectangle source = this.visualAssets.GetTrackSourceRect(direction);
 
             for (int segment = trackLength; segment >= 1; segment--)
@@ -205,20 +302,47 @@ public sealed class MinecartRenderer
             );
         }
 
+        this.DrawMinecartSprite(
+            batch,
+            tileX,
+            tileY,
+            direction,
+            visuals.MinecartStyle,
+            alpha,
+            invalid,
+            0f
+        );
+    }
+
+    private void DrawMinecartSprite(
+        SpriteBatch batch,
+        int tileX,
+        int tileY,
+        int direction,
+        string style,
+        float alpha,
+        bool invalid,
+        float layerDepth)
+    {
+        direction = StationGeometry.NormalizeDirection(direction);
         Rectangle logicalCart = this.WorldToScreen(
             StationGeometry.GetCartPixelBounds(tileX, tileY, direction)
         );
         Rectangle minecartBounds = this.GetMinecartSpriteBounds(logicalCart, direction);
-        Texture2D? minecart = this.visualAssets.Minecart;
+        Texture2D? minecart = this.visualAssets.GetMinecart(style);
+        Color tint = (invalid ? new Color(255, 105, 105) : Color.White) * alpha;
 
         if (minecart is not null)
         {
-            this.DrawTextureRegion(
-                batch,
+            batch.Draw(
                 minecart,
-                this.visualAssets.GetMinecartSourceRect(direction),
                 minecartBounds,
-                tint
+                this.visualAssets.GetMinecartSourceRect(direction),
+                tint,
+                0f,
+                Vector2.Zero,
+                SpriteEffects.None,
+                layerDepth
             );
         }
         else
@@ -287,8 +411,6 @@ public sealed class MinecartRenderer
     {
         direction = StationGeometry.NormalizeDirection(direction);
 
-        // The entrance is a wall-mounted visual. Its base always sits on the wall/floor
-        // intersection, while side-facing frames use the wall-facing edge as their X anchor.
         int x = direction switch
         {
             1 => logicalBounds.Right - EntranceWorldSize,
@@ -389,9 +511,6 @@ public sealed class MinecartRenderer
 
     private Rectangle GetMinecartSpriteBounds(Rectangle logicalBounds, int direction)
     {
-        // The four source frames don't have identical transparent padding at the bottom.
-        // Compensating for it makes the visible cart base land on the exact same ground line
-        // in all four orientations instead of making the down-facing frame float above the rail.
         int sourceBottomPadding = StationGeometry.NormalizeDirection(direction) switch
         {
             0 => 0,
