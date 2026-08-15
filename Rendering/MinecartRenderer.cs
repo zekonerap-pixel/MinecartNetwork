@@ -139,6 +139,7 @@ public sealed class MinecartRenderer
             int effectiveLength = hasTracks ? trackLength : 0;
             IReadOnlyList<Point> holeTiles = StationGeometry.GetHoleTiles(tileX, tileY, direction, effectiveLength);
             Rectangle logicalHole = this.GetScreenBounds(holeTiles);
+            Rectangle entranceBounds = this.GetEntranceSpriteBounds(logicalHole, direction);
             Texture2D? entrance = this.visualAssets.WallHole;
 
             if (entrance is not null)
@@ -147,13 +148,13 @@ public sealed class MinecartRenderer
                     batch,
                     entrance,
                     this.visualAssets.GetEntranceSourceRect(direction),
-                    this.GetEntranceSpriteBounds(logicalHole, direction),
+                    entranceBounds,
                     tint
                 );
             }
             else
             {
-                this.DrawFallbackEntrance(batch, logicalHole, direction, alpha, invalid);
+                this.DrawFallbackEntrance(batch, entranceBounds, direction, alpha, invalid);
             }
         }
 
@@ -165,7 +166,12 @@ public sealed class MinecartRenderer
             for (int segment = trackLength; segment >= 1; segment--)
             {
                 Point segmentTile = this.GetTrackSegmentTile(tileX, tileY, direction, segment);
-                Rectangle destination = this.WorldToScreen(StationGeometry.GetTilePixelBounds(segmentTile));
+                Rectangle logicalTrack = this.WorldToScreen(StationGeometry.GetTilePixelBounds(segmentTile));
+                Rectangle destination = this.GetGroundAnchoredBounds(
+                    logicalTrack,
+                    logicalTrack.Width,
+                    logicalTrack.Height
+                );
 
                 if (tracks is not null)
                     this.DrawTextureRegion(batch, tracks, source, destination, tint);
@@ -173,8 +179,13 @@ public sealed class MinecartRenderer
                     this.DrawFallbackTracks(batch, destination, direction, alpha, invalid);
             }
 
-            Rectangle cartTrackBounds = this.WorldToScreen(
+            Rectangle logicalCartTrack = this.WorldToScreen(
                 StationGeometry.GetCartPixelBounds(tileX, tileY, direction)
+            );
+            Rectangle cartTrackBounds = this.GetGroundAnchoredBounds(
+                logicalCartTrack,
+                logicalCartTrack.Width,
+                logicalCartTrack.Height
             );
 
             if (tracks is not null)
@@ -186,6 +197,7 @@ public sealed class MinecartRenderer
         Rectangle logicalCart = this.WorldToScreen(
             StationGeometry.GetCartPixelBounds(tileX, tileY, direction)
         );
+        Rectangle minecartBounds = this.GetMinecartSpriteBounds(logicalCart);
         Texture2D? minecart = this.visualAssets.Minecart;
 
         if (minecart is not null)
@@ -194,13 +206,13 @@ public sealed class MinecartRenderer
                 batch,
                 minecart,
                 this.visualAssets.GetMinecartSourceRect(direction),
-                this.GetMinecartSpriteBounds(logicalCart),
+                minecartBounds,
                 tint
             );
         }
         else
         {
-            this.DrawFallbackMinecart(batch, logicalCart, direction, alpha, invalid);
+            this.DrawFallbackMinecart(batch, minecartBounds, direction, alpha, invalid);
         }
     }
 
@@ -223,13 +235,20 @@ public sealed class MinecartRenderer
 
     private Rectangle GetEntranceSpriteBounds(Rectangle logicalBounds, int direction)
     {
-        bool vertical = StationGeometry.NormalizeDirection(direction) is 0 or 2;
+        direction = StationGeometry.NormalizeDirection(direction);
+
+        // The entrance is a wall-mounted visual. Its base always sits on the wall/floor
+        // intersection, while side-facing frames use the wall-facing edge as their X anchor.
+        int x = direction switch
+        {
+            1 => logicalBounds.Right - EntranceWorldSize,
+            3 => logicalBounds.Left,
+            _ => logicalBounds.Center.X - EntranceWorldSize / 2
+        };
 
         return new Rectangle(
-            logicalBounds.Center.X - EntranceWorldSize / 2,
-            vertical
-                ? logicalBounds.Bottom - EntranceWorldSize
-                : logicalBounds.Center.Y - EntranceWorldSize / 2,
+            x,
+            logicalBounds.Bottom - EntranceWorldSize,
             EntranceWorldSize,
             EntranceWorldSize
         );
@@ -237,11 +256,20 @@ public sealed class MinecartRenderer
 
     private Rectangle GetMinecartSpriteBounds(Rectangle logicalBounds)
     {
-        return new Rectangle(
-            logicalBounds.Center.X - MinecartWorldSize / 2,
-            logicalBounds.Center.Y - MinecartWorldSize / 2 - 4,
+        return this.GetGroundAnchoredBounds(
+            logicalBounds,
             MinecartWorldSize,
             MinecartWorldSize
+        );
+    }
+
+    private Rectangle GetGroundAnchoredBounds(Rectangle logicalBounds, int width, int height)
+    {
+        return new Rectangle(
+            logicalBounds.Center.X - width / 2,
+            logicalBounds.Bottom - height,
+            width,
+            height
         );
     }
 
