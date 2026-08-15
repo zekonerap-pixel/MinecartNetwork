@@ -1,4 +1,5 @@
 using MinecartNetwork.Models;
+using MinecartNetwork.Rendering;
 using MinecartNetwork.Services;
 using StardewModdingAPI;
 using StardewValley;
@@ -12,6 +13,7 @@ public sealed class DebugCommandHandler
     private readonly LocationRegionService regions;
     private readonly TeleportService teleport;
     private readonly PlacementManager placement;
+    private readonly VanillaStationVisualScanner vanillaVisualScanner;
     private readonly ModConfig config;
 
     public DebugCommandHandler(
@@ -20,6 +22,7 @@ public sealed class DebugCommandHandler
         LocationRegionService regions,
         TeleportService teleport,
         PlacementManager placement,
+        VanillaStationVisualScanner vanillaVisualScanner,
         ModConfig config)
     {
         this.monitor = monitor;
@@ -27,6 +30,7 @@ public sealed class DebugCommandHandler
         this.regions = regions;
         this.teleport = teleport;
         this.placement = placement;
+        this.vanillaVisualScanner = vanillaVisualScanner;
         this.config = config;
     }
 
@@ -60,6 +64,9 @@ public sealed class DebugCommandHandler
                 break;
             case "remove":
                 this.Remove(args.Skip(1).ToArray());
+                break;
+            case "visualscan":
+                this.vanillaVisualScanner.Scan();
                 break;
             default:
                 this.PrintHelp();
@@ -233,5 +240,6 @@ public sealed class DebugCommandHandler
         this.monitor.Log("  mn goto <name-or-id>           - warp to a station", LogLevel.Info);
         this.monitor.Log("  mn goto <category> <name>      - warp using category + name", LogLevel.Info);
         this.monitor.Log("  mn remove <name-or-id>         - delete a station and restore reversible cleared objects", LogLevel.Info);
+        this.monitor.Log("  mn visualscan                  - write a report of the real vanilla minecart map tiles", LogLevel.Info);
     }
 }
