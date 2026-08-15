@@ -18,6 +18,7 @@ public sealed class InteractionManager
     private readonly VanillaMinecartService vanillaMinecarts;
     private readonly TeleportService teleport;
     private readonly PlacementManager placement;
+    private readonly ModConfig config;
 
     private bool wasHoveringMinecart;
 
@@ -28,7 +29,8 @@ public sealed class InteractionManager
         LocationRegionService regions,
         VanillaMinecartService vanillaMinecarts,
         TeleportService teleport,
-        PlacementManager placement)
+        PlacementManager placement,
+        ModConfig config)
     {
         this.helper = helper;
         this.monitor = monitor;
@@ -37,6 +39,7 @@ public sealed class InteractionManager
         this.vanillaMinecarts = vanillaMinecarts;
         this.teleport = teleport;
         this.placement = placement;
+        this.config = config;
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -180,6 +183,7 @@ public sealed class InteractionManager
             this.vanillaMinecarts,
             this.teleport,
             this.placement,
+            this.config,
             station.Name,
             excludedCustomStationId: station.Id,
             excludedVanillaDestinationId: MinecartDataSyncService.GetDestinationId(station)
