@@ -9,6 +9,11 @@ public static class StationGeometry
     public const int MaxTrackLength = 8;
     public const int DefaultTrackLength = 2;
 
+    private const int CartCollisionWidth = 48;
+    private const int CartCollisionDepth = 32;
+    private const int EntranceCollisionSpan = 56;
+    private const int EntranceCollisionThickness = 20;
+
     public static int NormalizeDirection(int direction)
         => ((direction % 4) + 4) % 4;
 
@@ -26,7 +31,7 @@ public static class StationGeometry
 
     /// <summary>
     /// Get the logical minecart footprint. The cart always occupies exactly one tile;
-    /// its artwork may overhang that tile slightly without affecting placement/collision.
+    /// its artwork may overhang that tile without affecting construction geometry.
     /// </summary>
     public static IReadOnlyList<Point> GetCartTiles(int tileX, int tileY, int direction)
         => new[] { new Point(tileX, tileY) };
@@ -104,6 +109,95 @@ public static class StationGeometry
         }
 
         return result.ToList();
+    }
+
+    /// <summary>
+    /// Physical cart collision. The sprite may be much larger, but only the lower body/base
+    /// blocks movement so the visual overhang doesn't consume neighbouring tiles.
+    /// </summary>
+    public static Rectangle GetCartCollisionBounds(int tileX, int tileY)
+    {
+        Rectangle tile = GetCartPixelBounds(tileX, tileY, 0);
+        return new Rectangle(
+            tile.Center.X - CartCollisionWidth / 2,
+            tile.Bottom - CartCollisionDepth,
+            CartCollisionWidth,
+            CartCollisionDepth
+        );
+    }
+
+    /// <summary>
+    /// Physical collision for the mine entrance. It hugs the back edge of the logical hole tile,
+    /// which represents the wall plane, instead of blocking the whole 192px-tall visual.
+    /// </summary>
+    public static Rectangle GetEntranceCollisionBounds(
+        int tileX,
+        int tileY,
+        int direction,
+        int trackLength)
+    {
+        Point hole = GetHoleTiles(tileX, tileY, direction, trackLength)[0];
+        Rectangle tile = GetTilePixelBounds(hole);
+
+        return NormalizeDirection(direction) switch
+        {
+            // Facing up => tunnel is behind the cart toward +Y, so its wall plane is the bottom edge.
+            0 => new Rectangle(
+                tile.Center.X - EntranceCollisionSpan / 2,
+                tile.Bottom - EntranceCollisionThickness,
+                EntranceCollisionSpan,
+                EntranceCollisionThickness
+            ),
+
+            // Facing right => tunnel is behind the cart toward -X.
+            1 => new Rectangle(
+                tile.Left,
+                tile.Center.Y - EntranceCollisionSpan / 2,
+                EntranceCollisionThickness,
+                EntranceCollisionSpan
+            ),
+
+            // Facing down => tunnel is behind the cart toward -Y.
+            2 => new Rectangle(
+                tile.Center.X - EntranceCollisionSpan / 2,
+                tile.Top,
+                EntranceCollisionSpan,
+                EntranceCollisionThickness
+            ),
+
+            // Facing left => tunnel is behind the cart toward +X.
+            3 => new Rectangle(
+                tile.Right - EntranceCollisionThickness,
+                tile.Center.Y - EntranceCollisionSpan / 2,
+                EntranceCollisionThickness,
+                EntranceCollisionSpan
+            ),
+
+            _ => Rectangle.Empty
+        };
+    }
+
+    /// <summary>Get all physical collision rectangles for a placed station. Rails never collide.</summary>
+    public static IReadOnlyList<Rectangle> GetCollisionBounds(
+        int tileX,
+        int tileY,
+        int direction,
+        int trackLength,
+        bool hasTracks,
+        bool hasWallHole)
+    {
+        var result = new List<Rectangle>
+        {
+            GetCartCollisionBounds(tileX, tileY)
+        };
+
+        if (hasWallHole)
+        {
+            int effectiveLength = hasTracks ? trackLength : 0;
+            result.Add(GetEntranceCollisionBounds(tileX, tileY, direction, effectiveLength));
+        }
+
+        return result;
     }
 
     public static Rectangle GetCartPixelBounds(int tileX, int tileY, int direction)
