@@ -105,7 +105,9 @@ internal static class GenericModConfigMenuIntegration
     {
         string key = ModConfig.NormalizeStationVisualStyle(value) switch
         {
+            ModConfig.StationVisualIndustrial => "config.station-style.industrial",
             ModConfig.StationVisualRustic => "config.station-style.rustic",
+            ModConfig.StationVisualMiner => "config.station-style.miner",
             ModConfig.StationVisualCopper => "config.station-style.copper",
             ModConfig.StationVisualDarkIron => "config.station-style.dark-iron",
             ModConfig.StationVisualMoss => "config.station-style.moss",
