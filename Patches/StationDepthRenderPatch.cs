@@ -11,9 +11,10 @@ using StardewValley;
 namespace MinecartNetwork.Patches;
 
 /// <summary>
-/// Render placed stations around the local farmer. Entrance and rails stay in the background,
-/// while the minecart uses its one-tile collision footprint as a furniture-style depth boundary:
-/// the player covers it when standing in front, and the cart covers the player when standing behind.
+/// Draw placed stations in the normal world pass. Rails and entrance remain background visuals,
+/// while the minecart gets an explicit furniture-style layer depth derived from the bottom of its
+/// physical footprint. This lets Stardew's own SpriteBatch sorting decide whether the player is in
+/// front of or behind the cart, instead of flipping between separate prefix/postfix redraw passes.
 /// </summary>
 internal static class StationDepthRenderPatch
 {
@@ -55,11 +56,16 @@ internal static class StationDepthRenderPatch
             BindingFlags.Instance | BindingFlags.NonPublic
         );
 
-        if (drawStationMethod is not null && drawPlacementFootprintMethod is not null)
+        if (drawStationMethod is not null
+            && drawPlacementFootprintMethod is not null
+            && getMinecartSpriteBoundsMethod is not null
+            && visualAssetsField is not null)
+        {
             return true;
+        }
 
         monitor.Log(
-            "Couldn't access MinecartRenderer depth-render methods; station sprites will use the RenderedWorld fallback.",
+            "Couldn't access MinecartRenderer furniture-render methods; station sprites will use the RenderedWorld fallback.",
             LogLevel.Warn
         );
         return false;
@@ -70,19 +76,18 @@ internal static class StationDepthRenderPatch
         if (!ShouldHandleFarmer(__instance))
             return;
 
-        // Draw the complete station first. This keeps rails and the wall entrance behind the farmer,
-        // and also provides the cart's background pass when the farmer is standing in front of it.
+        // Draw the complete station once as the background/world pass. DrawStation still includes
+        // the cart, but that copy uses the renderer's background depth. We immediately add a second
+        // cart copy at the same position with the correct furniture layer depth; the two are visually
+        // identical, and only the depth-sorted copy participates in player front/back ordering.
         DrawPlacedStations(__0);
+        DrawFurnitureMinecarts(__0);
     }
 
     public static void Postfix(Farmer __instance, SpriteBatch __0)
     {
-        if (!ShouldHandleFarmer(__instance))
-            return;
-
-        // Furniture-style second pass: only redraw carts whose one-tile footprint is in front of
-        // the farmer. Passing false/false renders just the cart, with no duplicate rails/entrance.
-        DrawForegroundMinecarts(__0, __instance);
+        // Intentionally empty. The cart no longer switches between prefix/postfix passes based on
+        // the farmer position; SpriteBatch layer depth handles the relationship continuously.
     }
 
     public static void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
@@ -131,16 +136,16 @@ internal static class StationDepthRenderPatch
                 !valid
             );
 
-            // Placement is only a ghost preview, so furniture collision/depth rules do not apply yet.
-            // Redraw just the cart with maximum layer depth so it remains visible even when the cursor
-            // is directly over the farmer. Once placed, the normal furniture-style passes take over.
-            DrawPlacementMinecartOverlay(
+            // Preview rendering happens after the vanilla world, so it deliberately gets a high
+            // depth and stays visible while the user moves the cursor over the farmer.
+            DrawMinecartSprite(
                 e.SpriteBatch,
                 tile.X,
                 tile.Y,
                 placement.StationDirection,
                 0.62f,
-                !valid
+                !valid,
+                0.999f
             );
         }
         catch (Exception ex)
@@ -191,41 +196,33 @@ internal static class StationDepthRenderPatch
         }
     }
 
-    private static void DrawForegroundMinecarts(SpriteBatch batch, Farmer farmer)
+    private static void DrawFurnitureMinecarts(SpriteBatch batch)
     {
-        if (stations is null || drawStationMethod is null)
+        if (stations is null)
             return;
 
         try
         {
             string locationName = Game1.currentLocation.NameOrUniqueName;
-            int farmerDepth = farmer.GetBoundingBox().Bottom;
 
             foreach (MinecartStation station in stations.Stations)
             {
                 if (!IsVisibleStation(station, locationName))
                     continue;
 
-                Rectangle furnitureBounds = StationGeometry.GetCartCollisionBounds(
+                Rectangle footprint = StationGeometry.GetCartCollisionBounds(
                     station.VisualTileX!.Value,
                     station.VisualTileY!.Value
                 );
 
-                // Same visual rule as a normal floor furniture piece: its base controls depth.
-                // If the farmer's feet are above that base, the farmer is behind the cart.
-                if (farmerDepth >= furnitureBounds.Bottom)
-                    continue;
-
-                DrawStation(
+                DrawMinecartSprite(
                     batch,
                     station.VisualTileX.Value,
                     station.VisualTileY.Value,
                     station.StationDirection,
-                    station.TrackLength,
-                    hasTracks: false,
-                    hasWallHole: false,
                     1f,
-                    false
+                    false,
+                    GetFurnitureLayerDepth(footprint.Bottom)
                 );
             }
         }
@@ -235,13 +232,14 @@ internal static class StationDepthRenderPatch
         }
     }
 
-    private static void DrawPlacementMinecartOverlay(
+    private static void DrawMinecartSprite(
         SpriteBatch batch,
         int tileX,
         int tileY,
         int direction,
         float alpha,
-        bool invalid)
+        bool invalid,
+        float layerDepth)
     {
         if (renderer is null
             || getMinecartSpriteBoundsMethod is null
@@ -285,8 +283,15 @@ internal static class StationDepthRenderPatch
             0f,
             Vector2.Zero,
             SpriteEffects.None,
-            1f
+            layerDepth
         );
+    }
+
+    private static float GetFurnitureLayerDepth(int worldBaseY)
+    {
+        // Stardew world sprites conventionally derive depth from their world-space base Y.
+        // Keep the value inside SpriteBatch's valid 0..1 range for unusually tall modded maps.
+        return Math.Clamp((worldBaseY + 1) / 10000f, 0.0001f, 0.999f);
     }
 
     private static bool IsVisibleStation(MinecartStation station, string locationName)
