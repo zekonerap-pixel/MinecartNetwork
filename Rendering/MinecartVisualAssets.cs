@@ -44,43 +44,26 @@ public sealed class MinecartVisualAssets
         StationVisualSettings.Apply(helper.ReadConfig<ModConfig>());
     }
 
-    public Texture2D? Minecart
+    public Texture2D? Minecart => this.GetMinecart(StationVisualSettings.MinecartStyle);
+    public Texture2D? Tracks => this.GetTracks(StationVisualSettings.TrackStyle);
+    public Texture2D? WallHole => this.GetWallHole(StationVisualSettings.EntranceStyle);
+
+    public Texture2D? GetMinecart(string? style)
     {
-        get
-        {
-            this.EnsureLoaded();
-            return this.GetSelectedTexture(
-                this.minecart,
-                this.minecartVariants,
-                StationVisualSettings.MinecartStyle
-            );
-        }
+        this.EnsureLoaded();
+        return this.GetSelectedTexture(this.minecart, this.minecartVariants, style);
     }
 
-    public Texture2D? Tracks
+    public Texture2D? GetTracks(string? style)
     {
-        get
-        {
-            this.EnsureLoaded();
-            return this.GetSelectedTexture(
-                this.tracks,
-                this.trackVariants,
-                StationVisualSettings.TrackStyle
-            );
-        }
+        this.EnsureLoaded();
+        return this.GetSelectedTexture(this.tracks, this.trackVariants, style);
     }
 
-    public Texture2D? WallHole
+    public Texture2D? GetWallHole(string? style)
     {
-        get
-        {
-            this.EnsureLoaded();
-            return this.GetSelectedTexture(
-                this.wallHole,
-                this.entranceVariants,
-                StationVisualSettings.EntranceStyle
-            );
-        }
+        this.EnsureLoaded();
+        return this.GetSelectedTexture(this.wallHole, this.entranceVariants, style);
     }
 
     public static string[] GetAvailableStyles(IModHelper helper)
@@ -151,7 +134,6 @@ public sealed class MinecartVisualAssets
 
         this.loaded = true;
 
-        // Original/current artwork.
         this.minecart = this.TryLoadValidated(
             "assets/minecart.png",
             MinecartAtlasWidth,
