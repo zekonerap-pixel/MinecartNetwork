@@ -14,12 +14,23 @@ public sealed class MinecartMenu : IClickableMenu
     private const int PreferredMenuWidth = 760;
     private const int PreferredMenuHeight = 620;
     private const int ViewportMargin = 48;
-    private const int HeaderHeight = 46;
-    private const int StationHeight = 42;
+    private const int HeaderHeight = 48;
+    private const int StationHeight = 44;
     private const int RowGap = 6;
     private const int ScrollStep = 96;
-    private const int ScrollBarWidth = 8;
-    private const int ScrollBarMinThumbHeight = 28;
+    private const int ScrollBarWidth = 12;
+    private const int ScrollBarMinThumbHeight = 30;
+
+    private static readonly Rectangle MenuBoxSource = new(0, 256, 60, 60);
+    private static readonly Color TextColor = new(86, 22, 12);
+    private static readonly Color SubtleTextColor = new(120, 78, 48);
+    private static readonly Color CategoryFill = new(255, 229, 165);
+    private static readonly Color CategoryHoverFill = new(255, 214, 125);
+    private static readonly Color DestinationFill = new(255, 247, 211);
+    private static readonly Color DestinationHoverFill = new(255, 235, 176);
+    private static readonly Color AccentColor = new(170, 103, 53);
+    private static readonly Color ScrollTrackColor = new(117, 73, 45);
+    private static readonly Color ScrollThumbColor = new(224, 168, 83);
 
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
@@ -172,40 +183,39 @@ public sealed class MinecartMenu : IClickableMenu
     public override void draw(SpriteBatch b)
     {
         Rectangle viewportRect = new(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height);
-        b.Draw(Game1.staminaRect, viewportRect, Color.Black * 0.45f);
+        b.Draw(Game1.staminaRect, viewportRect, Color.Black * 0.38f);
 
         Rectangle panel = new(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height);
-        this.Fill(b, panel, new Color(37, 31, 28) * 0.98f);
-        this.Outline(b, panel, new Color(121, 88, 60), 5);
+        this.DrawVanillaBox(b, panel, Color.White, drawShadow: true);
 
         string title = this.FitText(
             Game1.dialogueFont,
             this.helper.Translation.Get("menu.title"),
-            this.width - 92
+            this.width - 108
         );
-        b.DrawString(
+        this.DrawTextWithShadow(
+            b,
             Game1.dialogueFont,
             title,
-            new Vector2(this.xPositionOnScreen + 34, this.yPositionOnScreen + 22),
-            Color.Wheat
+            new Vector2(this.xPositionOnScreen + 36, this.yPositionOnScreen + 24),
+            TextColor
         );
 
         Rectangle originPanel = new(
-            this.xPositionOnScreen + 28,
-            this.yPositionOnScreen + 68,
-            this.width - 56,
-            36
+            this.xPositionOnScreen + 32,
+            this.yPositionOnScreen + 76,
+            this.width - 64,
+            42
         );
-        this.Fill(b, originPanel, new Color(49, 43, 40));
-        this.Outline(b, originPanel, new Color(75, 66, 59), 1);
+        this.DrawVanillaBox(b, originPanel, new Color(255, 245, 210), drawShadow: false);
 
         string originText = this.helper.Translation.Get("menu.origin", new { name = this.originName });
-        originText = this.FitText(Game1.smallFont, originText, originPanel.Width - 20);
+        originText = this.FitText(Game1.smallFont, originText, originPanel.Width - 24);
         b.DrawString(
             Game1.smallFont,
             originText,
-            new Vector2(originPanel.X + 10, originPanel.Y + 7),
-            Color.LightGray
+            new Vector2(originPanel.X + 12, originPanel.Y + 10),
+            SubtleTextColor
         );
 
         if (this.visibleRows.Count == 0)
@@ -223,7 +233,7 @@ public sealed class MinecartMenu : IClickableMenu
                     this.xPositionOnScreen + (this.width - size.X) / 2f,
                     this.ContentTop + 56
                 ),
-                Color.LightGray
+                SubtleTextColor
             );
         }
         else
@@ -268,21 +278,21 @@ public sealed class MinecartMenu : IClickableMenu
         return Math.Min(PreferredMenuHeight, available);
     }
 
-    private int ContentTop => this.yPositionOnScreen + 116;
-    private int ContentBottom => this.yPositionOnScreen + this.height - 74;
+    private int ContentTop => this.yPositionOnScreen + 130;
+    private int ContentBottom => this.yPositionOnScreen + this.height - 82;
     private int ContentHeight => Math.Max(1, this.ContentBottom - this.ContentTop);
     private Rectangle ContentBounds => new(
-        this.xPositionOnScreen + 28,
+        this.xPositionOnScreen + 32,
         this.ContentTop,
-        this.width - 56,
+        this.width - 64,
         this.ContentHeight
     );
 
     private Rectangle ScrollBarTrack => new(
-        this.xPositionOnScreen + this.width - 24,
-        this.ContentTop + 4,
+        this.xPositionOnScreen + this.width - 28,
+        this.ContentTop + 6,
         ScrollBarWidth,
-        Math.Max(1, this.ContentHeight - 8)
+        Math.Max(1, this.ContentHeight - 12)
     );
 
     private Rectangle? EditButton
@@ -293,12 +303,12 @@ public sealed class MinecartMenu : IClickableMenu
                 return null;
 
             int availableWidth = Math.Max(1, this.width - 68);
-            int buttonWidth = Math.Min(250, availableWidth);
+            int buttonWidth = Math.Min(270, availableWidth);
             return new Rectangle(
                 this.xPositionOnScreen + 34,
-                this.yPositionOnScreen + this.height - 52,
+                this.yPositionOnScreen + this.height - 60,
                 buttonWidth,
-                34
+                42
             );
         }
     }
@@ -353,9 +363,9 @@ public sealed class MinecartMenu : IClickableMenu
         this.scrollOffset = Math.Clamp(this.scrollOffset, 0, this.maxScroll);
 
         int y = this.ContentTop - this.scrollOffset;
-        int x = this.xPositionOnScreen + 32;
-        int scrollPadding = this.maxScroll > 0 ? 20 : 0;
-        int rowWidth = Math.Max(1, this.width - 64 - scrollPadding);
+        int x = this.xPositionOnScreen + 36;
+        int scrollPadding = this.maxScroll > 0 ? 24 : 0;
+        int rowWidth = Math.Max(1, this.width - 72 - scrollPadding);
 
         foreach (MenuGroup group in this.destinationGroups)
         {
@@ -372,7 +382,7 @@ public sealed class MinecartMenu : IClickableMenu
             foreach (MenuDestination destination in group.Destinations)
             {
                 this.visibleRows.Add(new MenuRow(
-                    new Rectangle(x + 18, y, Math.Max(1, rowWidth - 18), StationHeight),
+                    new Rectangle(x + 20, y, Math.Max(1, rowWidth - 20), StationHeight),
                     null,
                     destination
                 ));
@@ -387,9 +397,6 @@ public sealed class MinecartMenu : IClickableMenu
     {
         var result = new List<MenuDestination>();
 
-        // Data/Minecarts is the single transport source. Our custom stations are mirrored
-        // into that asset by MinecartDataSyncService, so vanilla, content packs, other mods,
-        // and MinecartNetwork stations all flow through this same path.
         foreach (VanillaMinecartDestination destination in this.vanillaMinecarts.GetAvailableDefaultDestinations())
         {
             if (!string.IsNullOrEmpty(this.excludedVanillaDestinationId)
@@ -398,9 +405,6 @@ public sealed class MinecartMenu : IClickableMenu
 
             string category = destination.Category;
 
-            // Categories are MinecartNetwork UI metadata rather than transport data. When a
-            // native destination is one of our mirrored stations, preserve its manual/automatic
-            // category from StationManager while still taking the destination itself from Data/Minecarts.
             if (destination.IsCustomStation)
             {
                 MinecartStation? station = this.stations.Stations.FirstOrDefault(candidate =>
@@ -604,8 +608,7 @@ public sealed class MinecartMenu : IClickableMenu
     private void DrawScrollBar(SpriteBatch b)
     {
         Rectangle track = this.ScrollBarTrack;
-        this.Fill(b, track, new Color(49, 43, 40));
-        this.Outline(b, track, new Color(75, 66, 59), 1);
+        this.Fill(b, track, ScrollTrackColor * 0.45f);
 
         int thumbHeight = this.GetScrollThumbHeight();
         int travel = Math.Max(0, track.Height - thumbHeight);
@@ -614,7 +617,8 @@ public sealed class MinecartMenu : IClickableMenu
             thumbY += (int)Math.Round(travel * (this.scrollOffset / (double)this.maxScroll));
 
         Rectangle thumb = new(track.X, thumbY, track.Width, thumbHeight);
-        this.Fill(b, thumb, new Color(145, 108, 76));
+        this.Fill(b, thumb, ScrollThumbColor);
+        this.Outline(b, thumb, AccentColor, 2);
     }
 
     private void DrawScrollHint(SpriteBatch b)
@@ -639,8 +643,8 @@ public sealed class MinecartMenu : IClickableMenu
         b.DrawString(
             Game1.smallFont,
             scroll,
-            new Vector2(right - size.X, this.yPositionOnScreen + this.height - 42),
-            Color.Gray,
+            new Vector2(right - size.X, this.yPositionOnScreen + this.height - 46),
+            SubtleTextColor,
             0f,
             Vector2.Zero,
             0.7f,
@@ -654,20 +658,28 @@ public sealed class MinecartMenu : IClickableMenu
         bool collapsed = this.collapsedCategories.Contains(row.Category!);
         bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
-        this.Fill(b, row.Bounds, highlighted ? new Color(94, 72, 55) : new Color(72, 56, 45));
-        this.Outline(b, row.Bounds, highlighted ? new Color(155, 116, 80) : new Color(115, 86, 63), highlighted ? 3 : 2);
+
+        this.DrawVanillaBox(
+            b,
+            row.Bounds,
+            highlighted ? CategoryHoverFill : CategoryFill,
+            drawShadow: highlighted
+        );
 
         string marker = collapsed ? ">" : "v";
         string label = this.FitText(
             Game1.smallFont,
             $"{marker}  {row.Category}",
-            row.Bounds.Width - 28
+            row.Bounds.Width - 32
         );
-        b.DrawString(
+
+        this.DrawTextWithShadow(
+            b,
             Game1.smallFont,
             label,
-            new Vector2(row.Bounds.X + 14, row.Bounds.Y + 10),
-            Color.Wheat
+            new Vector2(row.Bounds.X + 16, row.Bounds.Y + 11),
+            TextColor,
+            shadowAlpha: highlighted ? 0.28f : 0.18f
         );
     }
 
@@ -675,19 +687,21 @@ public sealed class MinecartMenu : IClickableMenu
     {
         bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
-        this.Fill(b, row.Bounds, highlighted ? new Color(66, 57, 51) : new Color(49, 43, 40));
-        this.Outline(b, row.Bounds, highlighted ? new Color(122, 102, 84) : new Color(75, 66, 59), highlighted ? 2 : 1);
+
+        this.Fill(b, row.Bounds, highlighted ? DestinationHoverFill : DestinationFill);
+        this.Outline(b, row.Bounds, highlighted ? AccentColor : new Color(205, 160, 105), highlighted ? 2 : 1);
 
         string name = this.FitText(
             Game1.smallFont,
             row.Destination!.Name,
-            row.Bounds.Width - 32
+            row.Bounds.Width - 36
         );
+
         b.DrawString(
             Game1.smallFont,
             name,
-            new Vector2(row.Bounds.X + 16, row.Bounds.Y + 8),
-            highlighted ? Color.Wheat : Color.White
+            new Vector2(row.Bounds.X + 18, row.Bounds.Y + 9),
+            TextColor
         );
     }
 
@@ -695,24 +709,76 @@ public sealed class MinecartMenu : IClickableMenu
     {
         bool hovered = bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
-        this.Fill(b, bounds, highlighted ? new Color(94, 72, 55) : new Color(59, 50, 45));
-        this.Outline(b, bounds, highlighted ? new Color(155, 116, 80) : new Color(115, 86, 63), highlighted ? 3 : 2);
+
+        this.DrawVanillaBox(
+            b,
+            bounds,
+            highlighted ? CategoryHoverFill : CategoryFill,
+            drawShadow: highlighted
+        );
 
         string text = this.FitText(
             Game1.smallFont,
             this.helper.Translation.Get("menu.edit-station"),
-            bounds.Width - 24,
-            0.75f
+            bounds.Width - 28,
+            0.8f
         );
-        Vector2 size = Game1.smallFont.MeasureString(text) * 0.75f;
-        b.DrawString(
+        Vector2 size = Game1.smallFont.MeasureString(text) * 0.8f;
+        this.DrawTextWithShadow(
+            b,
             Game1.smallFont,
             text,
-            new Vector2(bounds.X + 12, bounds.Y + (bounds.Height - size.Y) / 2f),
-            Color.Wheat,
+            new Vector2(bounds.X + 14, bounds.Y + (bounds.Height - size.Y) / 2f),
+            TextColor,
+            0.8f
+        );
+    }
+
+    private void DrawVanillaBox(SpriteBatch b, Rectangle bounds, Color tint, bool drawShadow)
+    {
+        IClickableMenu.drawTextureBox(
+            b,
+            Game1.menuTexture,
+            MenuBoxSource,
+            bounds.X,
+            bounds.Y,
+            bounds.Width,
+            bounds.Height,
+            tint,
+            1f,
+            drawShadow
+        );
+    }
+
+    private void DrawTextWithShadow(
+        SpriteBatch b,
+        SpriteFont font,
+        string text,
+        Vector2 position,
+        Color color,
+        float scale = 1f,
+        float shadowAlpha = 0.25f)
+    {
+        Vector2 shadowOffset = new(2f, 2f);
+        b.DrawString(
+            font,
+            text,
+            position + shadowOffset,
+            Color.Black * shadowAlpha,
             0f,
             Vector2.Zero,
-            0.75f,
+            scale,
+            SpriteEffects.None,
+            0f
+        );
+        b.DrawString(
+            font,
+            text,
+            position,
+            color,
+            0f,
+            Vector2.Zero,
+            scale,
             SpriteEffects.None,
             0f
         );
