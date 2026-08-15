@@ -14,11 +14,20 @@ public sealed class StationEditMenu : IClickableMenu
     private const int PreferredMenuWidth = 620;
     private const int PreferredMenuHeight = 570;
     private const int ViewportMargin = 48;
-    private const int PreferredButtonHeight = 52;
+    private const int PreferredButtonHeight = 54;
     private const int PreferredButtonGap = 10;
     private const int ButtonCount = 5;
-    private const int ButtonAreaTop = 164;
+    private const int ButtonAreaTop = 172;
     private const int ButtonAreaBottomMargin = 32;
+
+    private static readonly Rectangle MenuBoxSource = new(0, 256, 60, 60);
+    private static readonly Color TextColor = new(86, 22, 12);
+    private static readonly Color SubtleTextColor = new(120, 78, 48);
+    private static readonly Color ButtonFill = new(255, 235, 177);
+    private static readonly Color ButtonHoverFill = new(255, 216, 126);
+    private static readonly Color DangerFill = new(255, 201, 178);
+    private static readonly Color DangerHoverFill = new(244, 166, 145);
+    private static readonly Color DangerTextColor = new(132, 42, 33);
 
     private readonly IModHelper helper;
     private readonly StationManager stations;
@@ -107,22 +116,22 @@ public sealed class StationEditMenu : IClickableMenu
     public override void draw(SpriteBatch b)
     {
         Rectangle viewport = new(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height);
-        b.Draw(Game1.staminaRect, viewport, Color.Black * 0.45f);
+        b.Draw(Game1.staminaRect, viewport, Color.Black * 0.38f);
 
         Rectangle panel = new(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height);
-        this.Fill(b, panel, new Color(37, 31, 28) * 0.98f);
-        this.Outline(b, panel, new Color(121, 88, 60), 5);
+        this.DrawVanillaBox(b, panel, Color.White, drawShadow: true);
 
         string title = this.FitText(
             Game1.dialogueFont,
             this.helper.Translation.Get("edit.title"),
-            this.width - 92
+            this.width - 108
         );
-        b.DrawString(
+        this.DrawTextWithShadow(
+            b,
             Game1.dialogueFont,
             title,
-            new Vector2(this.xPositionOnScreen + 34, this.yPositionOnScreen + 24),
-            Color.Wheat
+            new Vector2(this.xPositionOnScreen + 36, this.yPositionOnScreen + 26),
+            TextColor
         );
 
         string effectiveCategory = this.regions.GetStationCategory(this.station);
@@ -137,20 +146,19 @@ public sealed class StationEditMenu : IClickableMenu
         });
 
         Rectangle detailsPanel = new(
-            this.xPositionOnScreen + 28,
-            this.yPositionOnScreen + 76,
-            this.width - 56,
-            48
+            this.xPositionOnScreen + 32,
+            this.yPositionOnScreen + 84,
+            this.width - 64,
+            50
         );
-        this.Fill(b, detailsPanel, new Color(49, 43, 40));
-        this.Outline(b, detailsPanel, new Color(75, 66, 59), 1);
+        this.DrawVanillaBox(b, detailsPanel, new Color(255, 245, 210), drawShadow: false);
 
-        details = this.FitText(Game1.smallFont, details, detailsPanel.Width - 20);
+        details = this.FitText(Game1.smallFont, details, detailsPanel.Width - 24);
         b.DrawString(
             Game1.smallFont,
             details,
-            new Vector2(detailsPanel.X + 10, detailsPanel.Y + 13),
-            Color.LightGray
+            new Vector2(detailsPanel.X + 12, detailsPanel.Y + 14),
+            SubtleTextColor
         );
 
         this.DrawButton(b, this.RenameButton, this.helper.Translation.Get("edit.rename"), false, this.IsSelected(0));
@@ -340,26 +348,76 @@ public sealed class StationEditMenu : IClickableMenu
     {
         bool hovered = bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
-        Color fill = destructive
-            ? (highlighted ? new Color(115, 50, 45) : new Color(82, 43, 40))
-            : (highlighted ? new Color(94, 72, 55) : new Color(59, 50, 45));
-        Color border = destructive
-            ? new Color(151, 72, 65)
-            : (highlighted ? new Color(155, 116, 80) : new Color(115, 86, 63));
 
-        this.Fill(b, bounds, fill);
-        this.Outline(b, bounds, border, highlighted ? 3 : 2);
+        Color tint = destructive
+            ? (highlighted ? DangerHoverFill : DangerFill)
+            : (highlighted ? ButtonHoverFill : ButtonFill);
 
-        string fittedText = this.FitText(Game1.smallFont, text, bounds.Width - 24);
+        this.DrawVanillaBox(b, bounds, tint, drawShadow: highlighted);
+
+        string fittedText = this.FitText(Game1.smallFont, text, bounds.Width - 32);
         Vector2 size = Game1.smallFont.MeasureString(fittedText);
-        b.DrawString(
+        Color textColor = destructive ? DangerTextColor : TextColor;
+
+        this.DrawTextWithShadow(
+            b,
             Game1.smallFont,
             fittedText,
             new Vector2(
                 bounds.X + (bounds.Width - size.X) / 2f,
                 bounds.Y + (bounds.Height - size.Y) / 2f
             ),
-            Color.White
+            textColor,
+            shadowAlpha: highlighted ? 0.28f : 0.18f
+        );
+    }
+
+    private void DrawVanillaBox(SpriteBatch b, Rectangle bounds, Color tint, bool drawShadow)
+    {
+        IClickableMenu.drawTextureBox(
+            b,
+            Game1.menuTexture,
+            MenuBoxSource,
+            bounds.X,
+            bounds.Y,
+            bounds.Width,
+            bounds.Height,
+            tint,
+            1f,
+            drawShadow
+        );
+    }
+
+    private void DrawTextWithShadow(
+        SpriteBatch b,
+        SpriteFont font,
+        string text,
+        Vector2 position,
+        Color color,
+        float scale = 1f,
+        float shadowAlpha = 0.25f)
+    {
+        b.DrawString(
+            font,
+            text,
+            position + new Vector2(2f, 2f),
+            Color.Black * shadowAlpha,
+            0f,
+            Vector2.Zero,
+            scale,
+            SpriteEffects.None,
+            0f
+        );
+        b.DrawString(
+            font,
+            text,
+            position,
+            color,
+            0f,
+            Vector2.Zero,
+            scale,
+            SpriteEffects.None,
+            0f
         );
     }
 
@@ -385,18 +443,5 @@ public sealed class StationEditMenu : IClickableMenu
         }
 
         return text[..low].TrimEnd() + suffix;
-    }
-
-    private void Fill(SpriteBatch batch, Rectangle rectangle, Color color)
-    {
-        batch.Draw(Game1.staminaRect, rectangle, color);
-    }
-
-    private void Outline(SpriteBatch batch, Rectangle rectangle, Color color, int thickness)
-    {
-        this.Fill(batch, new Rectangle(rectangle.X, rectangle.Y, rectangle.Width, thickness), color);
-        this.Fill(batch, new Rectangle(rectangle.X, rectangle.Bottom - thickness, rectangle.Width, thickness), color);
-        this.Fill(batch, new Rectangle(rectangle.X, rectangle.Y, thickness, rectangle.Height), color);
-        this.Fill(batch, new Rectangle(rectangle.Right - thickness, rectangle.Y, thickness, rectangle.Height), color);
     }
 }
