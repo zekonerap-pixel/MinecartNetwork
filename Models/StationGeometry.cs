@@ -9,8 +9,6 @@ public static class StationGeometry
     public const int MaxTrackLength = 8;
     public const int DefaultTrackLength = 2;
 
-    private const int CartCollisionWidth = 48;
-    private const int CartCollisionDepth = 32;
     private const int EntranceCollisionSpan = 56;
     private const int EntranceCollisionThickness = 20;
 
@@ -112,19 +110,11 @@ public static class StationGeometry
     }
 
     /// <summary>
-    /// Physical cart collision. The sprite may be much larger, but only the lower body/base
-    /// blocks movement so the visual overhang doesn't consume neighbouring tiles.
+    /// Furniture-like physical footprint for the minecart. The artwork is 128x128, but the cart
+    /// behaves like a one-tile Stardew furniture piece for collision and depth sorting.
     /// </summary>
     public static Rectangle GetCartCollisionBounds(int tileX, int tileY)
-    {
-        Rectangle tile = GetCartPixelBounds(tileX, tileY, 0);
-        return new Rectangle(
-            tile.Center.X - CartCollisionWidth / 2,
-            tile.Bottom - CartCollisionDepth,
-            CartCollisionWidth,
-            CartCollisionDepth
-        );
-    }
+        => GetCartPixelBounds(tileX, tileY, 0);
 
     /// <summary>
     /// Physical collision for the mine entrance. It hugs the back edge of the logical hole tile,
