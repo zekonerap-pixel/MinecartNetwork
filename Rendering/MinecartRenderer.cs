@@ -11,9 +11,8 @@ namespace MinecartNetwork.Rendering;
 public sealed class MinecartRenderer
 {
     // World-space sizes are explicit and independent from source atlas resolution.
-    // Current PolyCarts-derived art therefore renders at exact integer scales:
-    // minecart 32 -> 64 (x2), tracks 16 -> 64 (x4), entrance 48 -> 96 (x2).
-    private const int MinecartWorldSize = 64;
+    // The minecart is intentionally drawn slightly larger than one tile for visual presence.
+    private const int MinecartWorldSize = 72;
     private const int EntranceWorldSize = 96;
 
     private readonly IModHelper helper;
@@ -240,7 +239,7 @@ public sealed class MinecartRenderer
     {
         return new Rectangle(
             logicalBounds.Center.X - MinecartWorldSize / 2,
-            logicalBounds.Center.Y - MinecartWorldSize / 2,
+            logicalBounds.Center.Y - MinecartWorldSize / 2 - 4,
             MinecartWorldSize,
             MinecartWorldSize
         );
