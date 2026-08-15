@@ -25,6 +25,16 @@ public sealed class StationVisualStyleResolver
         this.availableStyles = MinecartVisualAssets.GetAvailableStyles(helper);
     }
 
+    public StationVisualStyleResolver(
+        IModHelper helper,
+        LocationRegionService regions,
+        ModConfig config)
+        : this(helper, regions)
+    {
+        // The live defaults are read from StationVisualSettings so GMCM changes are reflected
+        // immediately without replacing the resolver instance.
+    }
+
     public IReadOnlyList<string> AvailableStyles => this.availableStyles;
 
     public ResolvedStationVisualStyles Resolve(MinecartStation? station)
