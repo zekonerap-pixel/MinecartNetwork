@@ -14,17 +14,14 @@ public sealed class StationVisualStyleResolver
 {
     private readonly IModHelper helper;
     private readonly LocationRegionService regions;
-    private readonly ModConfig config;
     private readonly string[] availableStyles;
 
     public StationVisualStyleResolver(
         IModHelper helper,
-        LocationRegionService regions,
-        ModConfig config)
+        LocationRegionService regions)
     {
         this.helper = helper;
         this.regions = regions;
-        this.config = config;
         this.availableStyles = MinecartVisualAssets.GetAvailableStyles(helper);
     }
 
@@ -127,9 +124,9 @@ public sealed class StationVisualStyleResolver
     private ResolvedStationVisualStyles ResolveDefaults()
     {
         return new ResolvedStationVisualStyles(
-            this.ResolveAvailable(this.config.MinecartVisualStyle, ModConfig.StationVisualLegacyCurrent),
-            this.ResolveAvailable(this.config.EntranceVisualStyle, ModConfig.StationVisualLegacyCurrent),
-            this.ResolveAvailable(this.config.TrackVisualStyle, ModConfig.StationVisualLegacyCurrent)
+            this.ResolveAvailable(StationVisualSettings.MinecartStyle, ModConfig.StationVisualLegacyCurrent),
+            this.ResolveAvailable(StationVisualSettings.EntranceStyle, ModConfig.StationVisualLegacyCurrent),
+            this.ResolveAvailable(StationVisualSettings.TrackStyle, ModConfig.StationVisualLegacyCurrent)
         );
     }
 
