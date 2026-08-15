@@ -22,6 +22,7 @@ public sealed class PlacementManager
     public string PendingName { get; private set; } = "";
     public string PendingCategory { get; private set; } = "";
     public bool PendingUsesAutomaticCategory { get; private set; }
+    public int PendingBuildCost { get; private set; }
     public bool HasTracks { get; private set; } = true;
     public bool HasWallHole { get; private set; } = true;
     public int StationDirection { get; private set; } = 2;
@@ -41,12 +42,20 @@ public sealed class PlacementManager
         this.config = config;
     }
 
-    public bool Begin(string name, string? category = null)
+    public bool Begin(string name, string? category = null, int buildCost = 0)
     {
         if (!this.CanBeginPlacement())
             return false;
 
+        int normalizedBuildCost = Math.Max(0, buildCost);
+        if (normalizedBuildCost > 0 && Game1.player.Money < normalizedBuildCost)
+        {
+            this.ShowInsufficientFunds(normalizedBuildCost);
+            return false;
+        }
+
         this.movingStationId = null;
+        this.PendingBuildCost = normalizedBuildCost;
         this.PendingName = string.IsNullOrWhiteSpace(name) ? "Minecart" : name.Trim();
         this.PendingUsesAutomaticCategory = string.IsNullOrWhiteSpace(category) && this.config.AutoCategorizeNewStations;
         this.PendingCategory = this.PendingUsesAutomaticCategory
@@ -62,8 +71,9 @@ public sealed class PlacementManager
         this.IsPlacing = true;
 
         string categoryMode = this.PendingUsesAutomaticCategory ? $"auto: {this.PendingCategory}" : this.PendingCategory;
+        string priceSuffix = this.PendingBuildCost > 0 ? $" | pending cost {this.PendingBuildCost:N0}g" : "";
         this.monitor.Log(
-            $"Placement started for '{this.PendingName}' ({categoryMode}). Left click places; R rotates; Q/E or controller shoulders change track length; T toggles tracks; H toggles mine entrance; right click/Escape cancels.",
+            $"Placement started for '{this.PendingName}' ({categoryMode}){priceSuffix}. Left click places; R rotates; Q/E or controller shoulders change track length; T toggles tracks; H toggles mine entrance; right click/Escape cancels.",
             LogLevel.Info
         );
         return true;
@@ -81,6 +91,7 @@ public sealed class PlacementManager
             return false;
 
         this.movingStationId = station.Id;
+        this.PendingBuildCost = 0;
         this.PendingName = station.Name;
         this.PendingUsesAutomaticCategory = station.UseAutomaticCategory;
         this.PendingCategory = this.PendingUsesAutomaticCategory
@@ -111,11 +122,12 @@ public sealed class PlacementManager
         bool wasMoving = this.IsMoving;
         this.IsPlacing = false;
         this.movingStationId = null;
+        this.PendingBuildCost = 0;
 
         if (!silent)
         {
             this.monitor.Log(
-                wasMoving ? "Minecart move cancelled; original position kept." : "Minecart placement cancelled.",
+                wasMoving ? "Minecart move cancelled; original position kept." : "Minecart placement cancelled; no gold was charged.",
                 LogLevel.Info
             );
         }
@@ -219,6 +231,15 @@ public sealed class PlacementManager
             );
             this.IsPlacing = false;
             this.movingStationId = null;
+            this.PendingBuildCost = 0;
+            return;
+        }
+
+        int buildCost = this.PendingBuildCost;
+        if (buildCost > 0 && Game1.player.Money < buildCost)
+        {
+            this.ShowInsufficientFunds(buildCost);
+            Game1.playSound("cancel");
             return;
         }
 
@@ -241,12 +262,16 @@ public sealed class PlacementManager
             trackLength: this.TrackLength
         );
 
+        if (buildCost > 0)
+            Game1.player.Money -= buildCost;
+
         Game1.playSound("coin");
         this.monitor.Log(
-            $"Placed station '{station.Name}' [{station.Id[..8]}] at {station.LocationName} {tile.X},{tile.Y}; arrival {warpTile.X},{warpTile.Y}; direction {station.StationDirection}; tracks {station.TrackLength}; category {storedCategory}{(station.UseAutomaticCategory ? " (auto)" : "")}.",
+            $"Placed station '{station.Name}' [{station.Id[..8]}] at {station.LocationName} {tile.X},{tile.Y}; arrival {warpTile.X},{warpTile.Y}; direction {station.StationDirection}; tracks {station.TrackLength}; category {storedCategory}{(station.UseAutomaticCategory ? " (auto)" : "")}; charged {buildCost:N0}g.",
             LogLevel.Info
         );
         this.IsPlacing = false;
+        this.PendingBuildCost = 0;
     }
 
     public void OnMenuChanged(object? sender, MenuChangedEventArgs e)
@@ -384,6 +409,16 @@ public sealed class PlacementManager
             3 => "left",
             _ => "down"
         };
+    }
+
+    private void ShowInsufficientFunds(int cost)
+    {
+        string message = this.helper.Translation.Get("management.insufficient-funds", new
+        {
+            cost = Math.Max(0, cost).ToString("N0")
+        }).ToString();
+        this.monitor.Log(message, LogLevel.Warn);
+        Game1.showRedMessage(message);
     }
 
     private bool CanBeginPlacement()

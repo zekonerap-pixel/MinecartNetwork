@@ -33,6 +33,28 @@ internal static class GenericModConfigMenuIntegration
             save
         );
 
+        api.AddKeybind(
+            manifest,
+            getValue: () => getConfig().ManagementMenuKey,
+            setValue: value => getConfig().ManagementMenuKey = value,
+            name: () => helper.Translation.Get("config.management-key.name").ToString(),
+            tooltip: () => helper.Translation.Get("config.management-key.tooltip").ToString(),
+            fieldId: "ManagementMenuKey"
+        );
+
+        api.AddNumberOption(
+            manifest,
+            getValue: () => Math.Max(0, getConfig().StationBuildCost),
+            setValue: value => getConfig().StationBuildCost = Math.Max(0, value),
+            name: () => helper.Translation.Get("config.station-build-cost.name").ToString(),
+            tooltip: () => helper.Translation.Get("config.station-build-cost.tooltip").ToString(),
+            min: 0,
+            max: 1000000,
+            interval: 5000,
+            formatValue: value => $"{value:N0}g",
+            fieldId: "StationBuildCost"
+        );
+
         string[] menuStyles =
         {
             ModConfig.MenuStyleStardew,

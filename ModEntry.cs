@@ -25,6 +25,7 @@ public sealed class ModEntry : Mod
     private TeleportService TeleportService = null!;
     private PlacementManager PlacementManager = null!;
     private InteractionManager InteractionManager = null!;
+    private ManagementMenuController ManagementMenuController = null!;
     private MinecartRenderer MinecartRenderer = null!;
     private DebugCommandHandler DebugCommands = null!;
     private bool DepthSortedStationRenderingEnabled;
@@ -33,6 +34,7 @@ public sealed class ModEntry : Mod
     {
         this.Config = helper.ReadConfig<ModConfig>();
         this.Config.MenuStyle = ModConfig.NormalizeMenuStyle(this.Config.MenuStyle);
+        this.Config.StationBuildCost = Math.Max(0, this.Config.StationBuildCost);
 
         this.LocationRegionService = new LocationRegionService(helper);
         this.StationEnvironmentService = new StationEnvironmentService(this.Monitor);
@@ -64,6 +66,12 @@ public sealed class ModEntry : Mod
             this.PlacementManager,
             this.Config
         );
+        this.ManagementMenuController = new ManagementMenuController(
+            helper,
+            this.VanillaMinecartService,
+            this.PlacementManager,
+            this.Config
+        );
         this.MinecartRenderer = new MinecartRenderer(
             helper,
             this.Monitor,
@@ -91,6 +99,7 @@ public sealed class ModEntry : Mod
 
         helper.Events.Input.ButtonPressed += this.PlacementManager.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.InteractionManager.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.ManagementMenuController.OnButtonPressed;
         helper.Events.Display.MenuChanged += this.PlacementManager.OnMenuChanged;
 
         // Placed stations are normally drawn around the local Farmer.draw call so they participate
@@ -293,6 +302,8 @@ public sealed class ModEntry : Mod
         this.Config.AutoCategorizeNewStations = defaults.AutoCategorizeNewStations;
         this.Config.DefaultCategory = defaults.DefaultCategory;
         this.Config.MenuStyle = defaults.MenuStyle;
+        this.Config.ManagementMenuKey = defaults.ManagementMenuKey;
+        this.Config.StationBuildCost = defaults.StationBuildCost;
     }
 
     private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)

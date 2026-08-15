@@ -1,3 +1,5 @@
+using StardewModdingAPI;
+
 namespace MinecartNetwork;
 
 public sealed class ModConfig
@@ -26,6 +28,11 @@ public sealed class ModConfig
     public bool AutoCategorizeNewStations { get; set; } = true;
     public string DefaultCategory { get; set; } = "Other";
     public string MenuStyle { get; set; } = MenuStyleStardew;
+
+    // Gameplay construction settings. The management menu is intentionally separate
+    // from the travel menu so this key can never be used as a remote fast-travel shortcut.
+    public SButton ManagementMenuKey { get; set; } = SButton.N;
+    public int StationBuildCost { get; set; } = 25000;
 
     // These three values are the global/default visual set. A station in Default mode
     // reads them directly; a station in Automatic mode only falls back to them when no
