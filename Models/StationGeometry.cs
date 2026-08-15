@@ -9,7 +9,7 @@ public static class StationGeometry
     public const int MaxTrackLength = 8;
     public const int DefaultTrackLength = 2;
 
-    private const int CartCollisionWidth = 128;
+    private const int CartCollisionWidth = 80;
     private const int CartCollisionDepth = 64;
     private const int EntranceCollisionSpan = 56;
     private const int EntranceCollisionThickness = 20;
