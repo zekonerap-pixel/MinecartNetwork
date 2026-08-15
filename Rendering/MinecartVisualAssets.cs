@@ -256,7 +256,7 @@ public sealed class MinecartVisualAssets
             (byte)Math.Round(from.R + (to.R - from.R) * amount),
             (byte)Math.Round(from.G + (to.G - from.G) * amount),
             (byte)Math.Round(from.B + (to.B - from.B) * amount),
-            255
+            (byte)255
         );
     }
 
