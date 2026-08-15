@@ -5,10 +5,24 @@ public sealed class ModConfig
     public const string MenuStyleStardew = "Stardew";
     public const string MenuStyleBasic = "Basic";
 
-    // Station artwork is intentionally split into three independent choices (option B).
-    // For now these stay on LegacyCurrent until real vanilla source tiles are identified;
-    // no fake/approximated vanilla options are exposed.
+    // Station artwork is split into three independent choices (option B).
+    // All generated variants keep the exact source atlas dimensions.
     public const string StationVisualLegacyCurrent = "LegacyCurrent";
+    public const string StationVisualRustic = "Rustic";
+    public const string StationVisualCopper = "Copper";
+    public const string StationVisualDarkIron = "DarkIron";
+    public const string StationVisualMoss = "Moss";
+    public const string StationVisualCrystal = "Crystal";
+
+    public static readonly string[] StationVisualStyles =
+    {
+        StationVisualLegacyCurrent,
+        StationVisualRustic,
+        StationVisualCopper,
+        StationVisualDarkIron,
+        StationVisualMoss,
+        StationVisualCrystal
+    };
 
     public bool EnableDebugCommands { get; set; } = true;
     public bool PlayWarpSound { get; set; } = true;
@@ -31,5 +45,16 @@ public sealed class ModConfig
         => NormalizeMenuStyle(value) == MenuStyleBasic;
 
     public static string NormalizeStationVisualStyle(string? value)
-        => StationVisualLegacyCurrent;
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            foreach (string style in StationVisualStyles)
+            {
+                if (style.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase))
+                    return style;
+            }
+        }
+
+        return StationVisualLegacyCurrent;
+    }
 }
