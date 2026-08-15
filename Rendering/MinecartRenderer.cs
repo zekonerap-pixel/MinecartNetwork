@@ -11,9 +11,16 @@ namespace MinecartNetwork.Rendering;
 public sealed class MinecartRenderer
 {
     // World-space sizes are explicit and independent from source atlas resolution.
-    // The minecart is intentionally drawn slightly larger than one tile for visual presence.
     private const int MinecartWorldSize = 128;
     private const int EntranceWorldSize = 192;
+
+    // Rails are sunk slightly into the visual ground plane. The cart remains anchored by its
+    // visible lower edge, so its wheels/body read as sitting directly on top of the rails.
+    private const int TrackGroundOffsetY = 8;
+
+    // Half a tile of extra rail is drawn toward the tunnel using half of the source frame.
+    // This keeps the pixel scale intact while making the rail visibly disappear into the opening.
+    private const int TrackEntranceOverlap = 32;
 
     private readonly IModHelper helper;
     private readonly StationManager stations;
@@ -167,37 +174,41 @@ public sealed class MinecartRenderer
             {
                 Point segmentTile = this.GetTrackSegmentTile(tileX, tileY, direction, segment);
                 Rectangle logicalTrack = this.WorldToScreen(StationGeometry.GetTilePixelBounds(segmentTile));
-                Rectangle destination = this.GetGroundAnchoredBounds(
-                    logicalTrack,
-                    logicalTrack.Width,
-                    logicalTrack.Height
-                );
 
-                if (tracks is not null)
-                    this.DrawTextureRegion(batch, tracks, source, destination, tint);
-                else
-                    this.DrawFallbackTracks(batch, destination, direction, alpha, invalid);
+                this.DrawTrackVisual(
+                    batch,
+                    tracks,
+                    source,
+                    logicalTrack,
+                    direction,
+                    extendIntoEntrance: hasWallHole && segment == trackLength,
+                    tint,
+                    alpha,
+                    invalid
+                );
             }
 
             Rectangle logicalCartTrack = this.WorldToScreen(
                 StationGeometry.GetCartPixelBounds(tileX, tileY, direction)
             );
-            Rectangle cartTrackBounds = this.GetGroundAnchoredBounds(
-                logicalCartTrack,
-                logicalCartTrack.Width,
-                logicalCartTrack.Height
-            );
 
-            if (tracks is not null)
-                this.DrawTextureRegion(batch, tracks, source, cartTrackBounds, tint);
-            else
-                this.DrawFallbackTracks(batch, cartTrackBounds, direction, alpha, invalid);
+            this.DrawTrackVisual(
+                batch,
+                tracks,
+                source,
+                logicalCartTrack,
+                direction,
+                extendIntoEntrance: hasWallHole && trackLength == 0,
+                tint,
+                alpha,
+                invalid
+            );
         }
 
         Rectangle logicalCart = this.WorldToScreen(
             StationGeometry.GetCartPixelBounds(tileX, tileY, direction)
         );
-        Rectangle minecartBounds = this.GetMinecartSpriteBounds(logicalCart);
+        Rectangle minecartBounds = this.GetMinecartSpriteBounds(logicalCart, direction);
         Texture2D? minecart = this.visualAssets.Minecart;
 
         if (minecart is not null)
@@ -213,6 +224,45 @@ public sealed class MinecartRenderer
         else
         {
             this.DrawFallbackMinecart(batch, minecartBounds, direction, alpha, invalid);
+        }
+    }
+
+    private void DrawTrackVisual(
+        SpriteBatch batch,
+        Texture2D? tracks,
+        Rectangle source,
+        Rectangle logicalBounds,
+        int direction,
+        bool extendIntoEntrance,
+        Color tint,
+        float alpha,
+        bool invalid)
+    {
+        Rectangle destination = this.GetTrackSpriteBounds(logicalBounds);
+
+        if (tracks is not null)
+            this.DrawTextureRegion(batch, tracks, source, destination, tint);
+        else
+            this.DrawFallbackTracks(batch, destination, direction, alpha, invalid);
+
+        if (!extendIntoEntrance)
+            return;
+
+        Rectangle overlapBounds = this.GetTrackEntranceOverlapBounds(logicalBounds, direction);
+
+        if (tracks is not null)
+        {
+            this.DrawTextureRegion(
+                batch,
+                tracks,
+                this.GetTrackEntranceOverlapSource(source, direction),
+                overlapBounds,
+                tint
+            );
+        }
+        else
+        {
+            this.DrawFallbackTracks(batch, overlapBounds, direction, alpha, invalid);
         }
     }
 
@@ -254,22 +304,113 @@ public sealed class MinecartRenderer
         );
     }
 
-    private Rectangle GetMinecartSpriteBounds(Rectangle logicalBounds)
+    private Rectangle GetTrackSpriteBounds(Rectangle logicalBounds)
     {
-        return this.GetGroundAnchoredBounds(
-            logicalBounds,
-            MinecartWorldSize,
-            MinecartWorldSize
+        return new Rectangle(
+            logicalBounds.X,
+            logicalBounds.Y + TrackGroundOffsetY,
+            logicalBounds.Width,
+            logicalBounds.Height
         );
     }
 
-    private Rectangle GetGroundAnchoredBounds(Rectangle logicalBounds, int width, int height)
+    private Rectangle GetTrackEntranceOverlapBounds(Rectangle logicalBounds, int direction)
     {
+        Rectangle groundBounds = this.GetTrackSpriteBounds(logicalBounds);
+        Point forward = StationGeometry.GetForwardVector(direction);
+        Point back = new(-forward.X, -forward.Y);
+
+        if (back.X < 0)
+        {
+            return new Rectangle(
+                groundBounds.X - TrackEntranceOverlap,
+                groundBounds.Y,
+                TrackEntranceOverlap,
+                groundBounds.Height
+            );
+        }
+
+        if (back.X > 0)
+        {
+            return new Rectangle(
+                groundBounds.Right,
+                groundBounds.Y,
+                TrackEntranceOverlap,
+                groundBounds.Height
+            );
+        }
+
+        if (back.Y < 0)
+        {
+            return new Rectangle(
+                groundBounds.X,
+                groundBounds.Y - TrackEntranceOverlap,
+                groundBounds.Width,
+                TrackEntranceOverlap
+            );
+        }
+
         return new Rectangle(
-            logicalBounds.Center.X - width / 2,
-            logicalBounds.Bottom - height,
-            width,
-            height
+            groundBounds.X,
+            groundBounds.Bottom,
+            groundBounds.Width,
+            TrackEntranceOverlap
+        );
+    }
+
+    private Rectangle GetTrackEntranceOverlapSource(Rectangle source, int direction)
+    {
+        Point forward = StationGeometry.GetForwardVector(direction);
+        Point back = new(-forward.X, -forward.Y);
+
+        if (back.X < 0)
+            return new Rectangle(source.X, source.Y, source.Width / 2, source.Height);
+
+        if (back.X > 0)
+        {
+            return new Rectangle(
+                source.Right - source.Width / 2,
+                source.Y,
+                source.Width / 2,
+                source.Height
+            );
+        }
+
+        if (back.Y < 0)
+            return new Rectangle(source.X, source.Y, source.Width, source.Height / 2);
+
+        return new Rectangle(
+            source.X,
+            source.Bottom - source.Height / 2,
+            source.Width,
+            source.Height / 2
+        );
+    }
+
+    private Rectangle GetMinecartSpriteBounds(Rectangle logicalBounds, int direction)
+    {
+        // The four source frames don't have identical transparent padding at the bottom.
+        // Compensating for it makes the visible cart base land on the exact same ground line
+        // in all four orientations instead of making the down-facing frame float above the rail.
+        int sourceBottomPadding = StationGeometry.NormalizeDirection(direction) switch
+        {
+            0 => 0,
+            1 => 1,
+            2 => 4,
+            3 => 1,
+            _ => 0
+        };
+
+        int worldBottomPadding = (int)Math.Round(
+            sourceBottomPadding
+                * (MinecartWorldSize / (double)MinecartVisualAssets.MinecartFrameHeight)
+        );
+
+        return new Rectangle(
+            logicalBounds.Center.X - MinecartWorldSize / 2,
+            logicalBounds.Bottom - MinecartWorldSize + worldBottomPadding,
+            MinecartWorldSize,
+            MinecartWorldSize
         );
     }
 
