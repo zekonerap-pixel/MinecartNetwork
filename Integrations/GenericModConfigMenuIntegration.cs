@@ -23,6 +23,11 @@ internal static class GenericModConfigMenuIntegration
             reset: () =>
             {
                 reset();
+
+                ModConfig defaults = new();
+                getConfig().MinecartVisualStyle = defaults.MinecartVisualStyle;
+                getConfig().EntranceVisualStyle = defaults.EntranceVisualStyle;
+                getConfig().TrackVisualStyle = defaults.TrackVisualStyle;
                 StationVisualSettings.Apply(getConfig());
             },
             save
