@@ -21,7 +21,6 @@ public sealed class MinecartMenu : IClickableMenu
     private const int ScrollBarWidth = 18;
     private const int ScrollBarMinThumbHeight = 30;
 
-    // Same local text treatment used by AutomateChestFilters. These values affect only this menu.
     private const float TitleScale = 1f;
     private const float OriginScale = 0.85f;
     private const float CategoryScale = 0.90f;
@@ -49,6 +48,7 @@ public sealed class MinecartMenu : IClickableMenu
     private readonly VanillaMinecartService vanillaMinecarts;
     private readonly TeleportService teleport;
     private readonly PlacementManager placement;
+    private readonly ModConfig config;
     private readonly string originName;
     private readonly string? excludedCustomStationId;
     private readonly string? excludedVanillaDestinationId;
@@ -69,6 +69,7 @@ public sealed class MinecartMenu : IClickableMenu
         VanillaMinecartService vanillaMinecarts,
         TeleportService teleport,
         PlacementManager placement,
+        ModConfig config,
         string originName,
         string? excludedCustomStationId = null,
         string? excludedVanillaDestinationId = null)
@@ -86,6 +87,7 @@ public sealed class MinecartMenu : IClickableMenu
         this.vanillaMinecarts = vanillaMinecarts;
         this.teleport = teleport;
         this.placement = placement;
+        this.config = config;
         this.originName = originName;
         this.excludedCustomStationId = excludedCustomStationId;
         this.excludedVanillaDestinationId = excludedVanillaDestinationId;
@@ -95,6 +97,8 @@ public sealed class MinecartMenu : IClickableMenu
         this.BuildRows();
         this.ClampSelection();
     }
+
+    private bool UseBasicStyle => ModConfig.IsBasicMenuStyle(this.config.MenuStyle);
 
     public override void receiveLeftClick(int x, int y, bool playSound = true)
     {
@@ -186,10 +190,18 @@ public sealed class MinecartMenu : IClickableMenu
     public override void draw(SpriteBatch b)
     {
         Rectangle viewportRect = new(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height);
-        b.Draw(Game1.staminaRect, viewportRect, Color.Black * 0.38f);
+        b.Draw(Game1.staminaRect, viewportRect, Color.Black * (this.UseBasicStyle ? 0.45f : 0.38f));
 
         Rectangle panel = new(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height);
-        this.DrawVanillaBox(b, panel, Color.White, drawShadow: true);
+        if (this.UseBasicStyle)
+        {
+            this.Fill(b, panel, new Color(37, 31, 28) * 0.98f);
+            this.Outline(b, panel, new Color(121, 88, 60), 5);
+        }
+        else
+        {
+            this.DrawVanillaBox(b, panel, Color.White, drawShadow: true);
+        }
 
         Rectangle titleBounds = new(
             this.xPositionOnScreen + 36,
@@ -204,8 +216,8 @@ public sealed class MinecartMenu : IClickableMenu
             MenuTitleFont,
             TitleScale,
             0.86f,
-            Game1.textColor,
-            drawShadow: true
+            this.UseBasicStyle ? Color.Wheat : Game1.textColor,
+            drawShadow: !this.UseBasicStyle
         );
 
         Rectangle originPanel = new(
@@ -214,7 +226,16 @@ public sealed class MinecartMenu : IClickableMenu
             this.width - 64,
             46
         );
-        this.DrawVanillaBox(b, originPanel, OriginFill, drawShadow: false);
+        if (this.UseBasicStyle)
+        {
+            this.Fill(b, originPanel, new Color(49, 43, 40));
+            this.Outline(b, originPanel, new Color(75, 66, 59), 1);
+        }
+        else
+        {
+            this.DrawVanillaBox(b, originPanel, OriginFill, drawShadow: false);
+        }
+
         this.DrawLeftCenteredScaledText(
             b,
             new Rectangle(originPanel.X + 12, originPanel.Y, originPanel.Width - 24, originPanel.Height),
@@ -222,7 +243,7 @@ public sealed class MinecartMenu : IClickableMenu
             MenuFont,
             OriginScale,
             0.76f,
-            SubtleTextColor
+            this.UseBasicStyle ? Color.LightGray : SubtleTextColor
         );
 
         if (this.visibleRows.Count == 0)
@@ -234,7 +255,7 @@ public sealed class MinecartMenu : IClickableMenu
                 MenuFont,
                 0.94f,
                 0.78f,
-                SubtleTextColor
+                this.UseBasicStyle ? Color.LightGray : SubtleTextColor
             );
         }
         else
@@ -482,6 +503,7 @@ public sealed class MinecartMenu : IClickableMenu
             this.stations,
             this.regions,
             this.placement,
+            this.config,
             origin,
             this.ReturnFromEditor
         );
@@ -595,8 +617,17 @@ public sealed class MinecartMenu : IClickableMenu
     private void DrawScrollBar(SpriteBatch b)
     {
         Rectangle track = this.ScrollBarTrack;
-        Rectangle trackBox = new(track.X - 3, track.Y, track.Width + 6, track.Height);
-        this.DrawVanillaBox(b, trackBox, ScrollTrackColor, drawShadow: false, scale: 0.40f);
+
+        if (this.UseBasicStyle)
+        {
+            this.Fill(b, track, new Color(49, 43, 40));
+            this.Outline(b, track, new Color(75, 66, 59), 1);
+        }
+        else
+        {
+            Rectangle trackBox = new(track.X - 3, track.Y, track.Width + 6, track.Height);
+            this.DrawVanillaBox(b, trackBox, ScrollTrackColor, drawShadow: false, scale: 0.40f);
+        }
 
         int thumbHeight = this.GetScrollThumbHeight();
         int travel = Math.Max(0, track.Height - thumbHeight);
@@ -604,8 +635,11 @@ public sealed class MinecartMenu : IClickableMenu
         if (this.maxScroll > 0 && travel > 0)
             thumbY += (int)Math.Round(travel * (this.scrollOffset / (double)this.maxScroll));
 
-        Rectangle thumb = new(track.X - 1, thumbY, track.Width + 2, thumbHeight);
-        this.DrawVanillaBox(b, thumb, ScrollThumbColor, drawShadow: true, scale: 0.34f);
+        Rectangle thumb = new(track.X - (this.UseBasicStyle ? 0 : 1), thumbY, track.Width + (this.UseBasicStyle ? 0 : 2), thumbHeight);
+        if (this.UseBasicStyle)
+            this.Fill(b, thumb, new Color(145, 108, 76));
+        else
+            this.DrawVanillaBox(b, thumb, ScrollThumbColor, drawShadow: true, scale: 0.34f);
     }
 
     private void DrawScrollHint(SpriteBatch b)
@@ -627,7 +661,7 @@ public sealed class MinecartMenu : IClickableMenu
             MenuFont,
             FooterScale,
             0.68f,
-            SubtleTextColor
+            this.UseBasicStyle ? Color.Gray : SubtleTextColor
         );
     }
 
@@ -637,12 +671,20 @@ public sealed class MinecartMenu : IClickableMenu
         bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
 
-        this.DrawVanillaBox(
-            b,
-            row.Bounds,
-            highlighted ? CategoryHoverFill : CategoryFill,
-            drawShadow: highlighted
-        );
+        if (this.UseBasicStyle)
+        {
+            this.Fill(b, row.Bounds, highlighted ? new Color(94, 72, 55) : new Color(72, 56, 45));
+            this.Outline(b, row.Bounds, highlighted ? new Color(155, 116, 80) : new Color(115, 86, 63), highlighted ? 3 : 2);
+        }
+        else
+        {
+            this.DrawVanillaBox(
+                b,
+                row.Bounds,
+                highlighted ? CategoryHoverFill : CategoryFill,
+                drawShadow: highlighted
+            );
+        }
 
         string marker = collapsed ? ">" : "v";
         this.DrawLeftCenteredScaledText(
@@ -652,7 +694,7 @@ public sealed class MinecartMenu : IClickableMenu
             MenuFont,
             CategoryScale,
             0.78f,
-            Game1.textColor
+            this.UseBasicStyle ? Color.Wheat : Game1.textColor
         );
     }
 
@@ -661,12 +703,20 @@ public sealed class MinecartMenu : IClickableMenu
         bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
 
-        this.DrawVanillaBox(
-            b,
-            row.Bounds,
-            highlighted ? DestinationHoverFill : DestinationFill,
-            drawShadow: highlighted
-        );
+        if (this.UseBasicStyle)
+        {
+            this.Fill(b, row.Bounds, highlighted ? new Color(66, 57, 51) : new Color(49, 43, 40));
+            this.Outline(b, row.Bounds, highlighted ? new Color(122, 102, 84) : new Color(75, 66, 59), highlighted ? 2 : 1);
+        }
+        else
+        {
+            this.DrawVanillaBox(
+                b,
+                row.Bounds,
+                highlighted ? DestinationHoverFill : DestinationFill,
+                drawShadow: highlighted
+            );
+        }
 
         this.DrawLeftCenteredScaledText(
             b,
@@ -675,8 +725,8 @@ public sealed class MinecartMenu : IClickableMenu
             MenuFont,
             DestinationScale,
             0.78f,
-            Game1.textColor,
-            drawShadow: highlighted
+            this.UseBasicStyle ? (highlighted ? Color.Wheat : Color.White) : Game1.textColor,
+            drawShadow: !this.UseBasicStyle && highlighted
         );
     }
 
@@ -685,12 +735,20 @@ public sealed class MinecartMenu : IClickableMenu
         bool hovered = bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
 
-        this.DrawVanillaBox(
-            b,
-            bounds,
-            highlighted ? CategoryHoverFill : CategoryFill,
-            drawShadow: highlighted
-        );
+        if (this.UseBasicStyle)
+        {
+            this.Fill(b, bounds, highlighted ? new Color(94, 72, 55) : new Color(59, 50, 45));
+            this.Outline(b, bounds, highlighted ? new Color(155, 116, 80) : new Color(115, 86, 63), highlighted ? 3 : 2);
+        }
+        else
+        {
+            this.DrawVanillaBox(
+                b,
+                bounds,
+                highlighted ? CategoryHoverFill : CategoryFill,
+                drawShadow: highlighted
+            );
+        }
 
         this.DrawLeftCenteredScaledText(
             b,
@@ -699,8 +757,8 @@ public sealed class MinecartMenu : IClickableMenu
             MenuFont,
             EditButtonScale,
             0.72f,
-            Game1.textColor,
-            drawShadow: highlighted
+            this.UseBasicStyle ? Color.Wheat : Game1.textColor,
+            drawShadow: !this.UseBasicStyle && highlighted
         );
     }
 
@@ -836,6 +894,17 @@ public sealed class MinecartMenu : IClickableMenu
         }
 
         return text[..low].TrimEnd() + suffix;
+    }
+
+    private void Fill(SpriteBatch batch, Rectangle rectangle, Color color)
+        => batch.Draw(Game1.staminaRect, rectangle, color);
+
+    private void Outline(SpriteBatch batch, Rectangle rectangle, Color color, int thickness)
+    {
+        this.Fill(batch, new Rectangle(rectangle.X, rectangle.Y, rectangle.Width, thickness), color);
+        this.Fill(batch, new Rectangle(rectangle.X, rectangle.Bottom - thickness, rectangle.Width, thickness), color);
+        this.Fill(batch, new Rectangle(rectangle.X, rectangle.Y, thickness, rectangle.Height), color);
+        this.Fill(batch, new Rectangle(rectangle.Right - thickness, rectangle.Y, thickness, rectangle.Height), color);
     }
 
     private sealed record MenuDestination(
