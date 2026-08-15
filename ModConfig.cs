@@ -6,7 +6,8 @@ public sealed class ModConfig
     public const string MenuStyleBasic = "Basic";
 
     // Station artwork is split into three independent choices (option B).
-    // Every visual set preserves the exact source atlas dimensions.
+    // Any safe folder name under assets/styles can be selected; the runtime catalog
+    // decides whether that folder contains a complete, valid visual set.
     public const string StationVisualLegacyCurrent = "LegacyCurrent";
     public const string StationVisualIndustrial = "Industrial";
     public const string StationVisualRustic = "Rustic";
@@ -15,18 +16,6 @@ public sealed class ModConfig
     public const string StationVisualDarkIron = "DarkIron";
     public const string StationVisualMoss = "Moss";
     public const string StationVisualCrystal = "Crystal";
-
-    public static readonly string[] StationVisualStyles =
-    {
-        StationVisualLegacyCurrent,
-        StationVisualIndustrial,
-        StationVisualRustic,
-        StationVisualMiner,
-        StationVisualCopper,
-        StationVisualDarkIron,
-        StationVisualMoss,
-        StationVisualCrystal
-    };
 
     public bool EnableDebugCommands { get; set; } = true;
     public bool PlayWarpSound { get; set; } = true;
@@ -50,15 +39,29 @@ public sealed class ModConfig
 
     public static string NormalizeStationVisualStyle(string? value)
     {
-        if (!string.IsNullOrWhiteSpace(value))
+        if (string.IsNullOrWhiteSpace(value))
+            return StationVisualLegacyCurrent;
+
+        string trimmed = value.Trim();
+        if (trimmed.Equals(StationVisualLegacyCurrent, StringComparison.OrdinalIgnoreCase))
+            return StationVisualLegacyCurrent;
+
+        return IsSafeStationVisualStyleName(trimmed)
+            ? trimmed
+            : StationVisualLegacyCurrent;
+    }
+
+    public static bool IsSafeStationVisualStyleName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        foreach (char character in value)
         {
-            foreach (string style in StationVisualStyles)
-            {
-                if (style.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase))
-                    return style;
-            }
+            if (!char.IsLetterOrDigit(character) && character is not '-' and not '_')
+                return false;
         }
 
-        return StationVisualLegacyCurrent;
+        return true;
     }
 }
