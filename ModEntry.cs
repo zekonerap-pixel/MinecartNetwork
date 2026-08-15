@@ -1,6 +1,7 @@
 using System.Reflection;
 using HarmonyLib;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using MinecartNetwork.Commands;
 using MinecartNetwork.Menus;
 using MinecartNetwork.Patches;
@@ -25,6 +26,7 @@ public sealed class ModEntry : Mod
     private InteractionManager InteractionManager = null!;
     private MinecartRenderer MinecartRenderer = null!;
     private DebugCommandHandler DebugCommands = null!;
+    private bool DepthSortedStationRenderingEnabled;
 
     public override void Entry(IModHelper helper)
     {
@@ -78,7 +80,14 @@ public sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.PlacementManager.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.InteractionManager.OnButtonPressed;
         helper.Events.Display.MenuChanged += this.PlacementManager.OnMenuChanged;
-        helper.Events.Display.RenderedWorld += this.MinecartRenderer.OnRenderedWorld;
+
+        // Placed stations are normally drawn around the local Farmer.draw call so they participate
+        // in the same front/back relationship as building-like world objects. If the runtime method
+        // can't be patched, fall back to the previous RenderedWorld overlay instead of hiding them.
+        helper.Events.Display.RenderedWorld += this.DepthSortedStationRenderingEnabled
+            ? StationDepthRenderPatch.OnRenderedWorld
+            : this.MinecartRenderer.OnRenderedWorld;
+
         helper.Events.Display.RenderedHud += this.MinecartRenderer.OnRenderedHud;
 
         helper.ConsoleCommands.Add(
@@ -95,6 +104,7 @@ public sealed class ModEntry : Mod
         var harmony = new Harmony(this.ModManifest.UniqueID);
 
         this.ApplyStationCollisionPatches(harmony);
+        this.DepthSortedStationRenderingEnabled = this.ApplyStationDepthRenderPatch(harmony);
         this.ApplyVanillaMinecartPatch(harmony);
     }
 
@@ -136,6 +146,57 @@ public sealed class ModEntry : Mod
             $"Enabled Minecart Network physical collisions on {collisionMethods.Count} GameLocation collision method(s).",
             LogLevel.Debug
         );
+    }
+
+    private bool ApplyStationDepthRenderPatch(Harmony harmony)
+    {
+        if (!StationDepthRenderPatch.Configure(
+                this.Monitor,
+                this.StationManager,
+                this.PlacementManager,
+                this.MinecartRenderer))
+        {
+            return false;
+        }
+
+        MethodInfo? farmerDraw = typeof(Farmer)
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .FirstOrDefault(method =>
+            {
+                if (method.Name != "draw" || method.ReturnType != typeof(void))
+                    return false;
+
+                ParameterInfo[] parameters = method.GetParameters();
+                return parameters.Length == 1
+                    && parameters[0].ParameterType == typeof(SpriteBatch);
+            });
+
+        if (farmerDraw is null)
+        {
+            this.Monitor.Log(
+                "Couldn't find Farmer.draw(SpriteBatch); using the RenderedWorld fallback for station sprites.",
+                LogLevel.Warn
+            );
+            return false;
+        }
+
+        harmony.Patch(
+            farmerDraw,
+            prefix: new HarmonyMethod(
+                typeof(StationDepthRenderPatch),
+                nameof(StationDepthRenderPatch.Prefix)
+            ),
+            postfix: new HarmonyMethod(
+                typeof(StationDepthRenderPatch),
+                nameof(StationDepthRenderPatch.Postfix)
+            )
+        );
+
+        this.Monitor.Log(
+            "Enabled building-style depth sorting for custom station sprites.",
+            LogLevel.Debug
+        );
+        return true;
     }
 
     private void ApplyVanillaMinecartPatch(Harmony harmony)
