@@ -5,9 +5,8 @@ public sealed class ModConfig
     public const string MenuStyleStardew = "Stardew";
     public const string MenuStyleBasic = "Basic";
 
-    // Station artwork is split into three independent choices (option B).
-    // Any safe folder name under assets/styles can be selected; the runtime catalog
-    // decides whether that folder contains a complete, valid visual set.
+    // Global/default station artwork. Any safe folder name under assets/styles can be
+    // selected; the runtime catalog decides whether that folder is complete and valid.
     public const string StationVisualLegacyCurrent = "LegacyCurrent";
     public const string StationVisualIndustrial = "Industrial";
     public const string StationVisualRustic = "Rustic";
@@ -17,12 +16,20 @@ public sealed class ModConfig
     public const string StationVisualMoss = "Moss";
     public const string StationVisualCrystal = "Crystal";
 
+    // Per-station visual mode. Existing stations default to the global GMCM styles.
+    public const string StationVisualModeDefault = "Default";
+    public const string StationVisualModeAutomatic = "Automatic";
+    public const string StationVisualModeCustom = "Custom";
+
     public bool EnableDebugCommands { get; set; } = true;
     public bool PlayWarpSound { get; set; } = true;
     public bool AutoCategorizeNewStations { get; set; } = true;
     public string DefaultCategory { get; set; } = "Other";
     public string MenuStyle { get; set; } = MenuStyleStardew;
 
+    // These three values are the global/default visual set. A station in Default mode
+    // reads them directly; a station in Automatic mode only falls back to them when no
+    // suitable regional set is available.
     public string MinecartVisualStyle { get; set; } = StationVisualLegacyCurrent;
     public string EntranceVisualStyle { get; set; } = StationVisualLegacyCurrent;
     public string TrackVisualStyle { get; set; } = StationVisualLegacyCurrent;
@@ -49,6 +56,16 @@ public sealed class ModConfig
         return IsSafeStationVisualStyleName(trimmed)
             ? trimmed
             : StationVisualLegacyCurrent;
+    }
+
+    public static string NormalizeStationVisualMode(string? value)
+    {
+        if (value?.Equals(StationVisualModeAutomatic, StringComparison.OrdinalIgnoreCase) == true)
+            return StationVisualModeAutomatic;
+        if (value?.Equals(StationVisualModeCustom, StringComparison.OrdinalIgnoreCase) == true)
+            return StationVisualModeCustom;
+
+        return StationVisualModeDefault;
     }
 
     public static bool IsSafeStationVisualStyleName(string? value)
