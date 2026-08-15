@@ -23,6 +23,8 @@ internal static class StationDepthRenderPatch
     private static MinecartRenderer? renderer;
     private static MethodInfo? drawStationMethod;
     private static MethodInfo? drawPlacementFootprintMethod;
+    private static MethodInfo? getMinecartSpriteBoundsMethod;
+    private static FieldInfo? visualAssetsField;
     private static bool renderErrorLogged;
 
     public static bool Configure(
@@ -42,6 +44,14 @@ internal static class StationDepthRenderPatch
         );
         drawPlacementFootprintMethod = typeof(MinecartRenderer).GetMethod(
             "DrawPlacementFootprint",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        getMinecartSpriteBoundsMethod = typeof(MinecartRenderer).GetMethod(
+            "GetMinecartSpriteBounds",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        visualAssetsField = typeof(MinecartRenderer).GetField(
+            "visualAssets",
             BindingFlags.Instance | BindingFlags.NonPublic
         );
 
@@ -117,6 +127,18 @@ internal static class StationDepthRenderPatch
                 placement.TrackLength,
                 placement.HasTracks,
                 placement.HasWallHole,
+                0.62f,
+                !valid
+            );
+
+            // Placement is only a ghost preview, so furniture collision/depth rules do not apply yet.
+            // Redraw just the cart with maximum layer depth so it remains visible even when the cursor
+            // is directly over the farmer. Once placed, the normal furniture-style passes take over.
+            DrawPlacementMinecartOverlay(
+                e.SpriteBatch,
+                tile.X,
+                tile.Y,
+                placement.StationDirection,
                 0.62f,
                 !valid
             );
@@ -211,6 +233,60 @@ internal static class StationDepthRenderPatch
         {
             LogRenderError(ex);
         }
+    }
+
+    private static void DrawPlacementMinecartOverlay(
+        SpriteBatch batch,
+        int tileX,
+        int tileY,
+        int direction,
+        float alpha,
+        bool invalid)
+    {
+        if (renderer is null
+            || getMinecartSpriteBoundsMethod is null
+            || visualAssetsField is null)
+        {
+            return;
+        }
+
+        MinecartVisualAssets? assets = visualAssetsField.GetValue(renderer) as MinecartVisualAssets;
+        Texture2D? texture = assets?.Minecart;
+        if (texture is null)
+            return;
+
+        direction = StationGeometry.NormalizeDirection(direction);
+        Rectangle world = StationGeometry.GetCartPixelBounds(tileX, tileY, direction);
+        Vector2 screenOrigin = Game1.GlobalToLocal(
+            Game1.viewport,
+            new Vector2(world.X, world.Y)
+        );
+        Rectangle logicalScreenBounds = new(
+            (int)screenOrigin.X,
+            (int)screenOrigin.Y,
+            world.Width,
+            world.Height
+        );
+
+        object? boundsResult = getMinecartSpriteBoundsMethod.Invoke(
+            renderer,
+            new object[] { logicalScreenBounds, direction }
+        );
+        if (boundsResult is not Rectangle destination)
+            return;
+
+        Color tint = (invalid ? new Color(255, 105, 105) : Color.White) * alpha;
+
+        batch.Draw(
+            texture,
+            destination,
+            assets!.GetMinecartSourceRect(direction),
+            tint,
+            0f,
+            Vector2.Zero,
+            SpriteEffects.None,
+            1f
+        );
     }
 
     private static bool IsVisibleStation(MinecartStation station, string locationName)
