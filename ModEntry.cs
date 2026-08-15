@@ -64,7 +64,14 @@ public sealed class ModEntry : Mod
             this.PlacementManager,
             this.Config
         );
-        this.MinecartRenderer = new MinecartRenderer(helper, this.StationManager, this.PlacementManager);
+        this.MinecartRenderer = new MinecartRenderer(
+            helper,
+            this.Monitor,
+            this.StationManager,
+            this.LocationRegionService,
+            this.PlacementManager,
+            this.Config
+        );
         this.DebugCommands = new DebugCommandHandler(
             this.Monitor,
             this.StationManager,
