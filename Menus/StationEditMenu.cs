@@ -12,11 +12,11 @@ namespace MinecartNetwork.Menus;
 public sealed class StationEditMenu : IClickableMenu
 {
     private const int PreferredMenuWidth = 620;
-    private const int PreferredMenuHeight = 570;
+    private const int PreferredMenuHeight = 640;
     private const int ViewportMargin = 48;
     private const int PreferredButtonHeight = 54;
     private const int PreferredButtonGap = 10;
-    private const int ButtonCount = 5;
+    private const int ButtonCount = 6;
     private const int ButtonAreaTop = 172;
     private const int ButtonAreaBottomMargin = 32;
 
@@ -207,7 +207,8 @@ public sealed class StationEditMenu : IClickableMenu
             false,
             this.IsSelected(2)
         );
-        this.DrawButton(b, this.MoveButton, this.helper.Translation.Get("edit.move"), false, this.IsSelected(3));
+        this.DrawButton(b, this.VisualStyleButton, this.helper.Translation.Get("edit.visual-style"), false, this.IsSelected(3));
+        this.DrawButton(b, this.MoveButton, this.helper.Translation.Get("edit.move"), false, this.IsSelected(4));
         this.DrawButton(
             b,
             this.DeleteButton,
@@ -215,7 +216,7 @@ public sealed class StationEditMenu : IClickableMenu
                 ? this.helper.Translation.Get("edit.delete-confirm")
                 : this.helper.Translation.Get("edit.delete"),
             true,
-            this.IsSelected(4)
+            this.IsSelected(5)
         );
 
         this.upperRightCloseButton?.draw(b);
@@ -237,8 +238,9 @@ public sealed class StationEditMenu : IClickableMenu
     private Rectangle RenameButton => this.GetButtonBounds(0);
     private Rectangle CategoryButton => this.GetButtonBounds(1);
     private Rectangle AutoCategoryButton => this.GetButtonBounds(2);
-    private Rectangle MoveButton => this.GetButtonBounds(3);
-    private Rectangle DeleteButton => this.GetButtonBounds(4);
+    private Rectangle VisualStyleButton => this.GetButtonBounds(3);
+    private Rectangle MoveButton => this.GetButtonBounds(4);
+    private Rectangle DeleteButton => this.GetButtonBounds(5);
 
     private int CurrentButtonGap => this.height >= PreferredMenuHeight
         ? PreferredButtonGap
@@ -300,11 +302,16 @@ public sealed class StationEditMenu : IClickableMenu
 
             case 3:
                 this.confirmDelete = false;
+                this.OpenVisualStyleMenu();
+                return;
+
+            case 4:
+                this.confirmDelete = false;
                 Game1.exitActiveMenu();
                 this.placement.BeginMove(this.station);
                 return;
 
-            case 4:
+            case 5:
                 if (!this.confirmDelete)
                 {
                     this.confirmDelete = true;
@@ -342,15 +349,7 @@ public sealed class StationEditMenu : IClickableMenu
                 if (!string.IsNullOrWhiteSpace(name))
                     this.stations.UpdateName(this.station.Id, name.Trim());
 
-                Game1.activeClickableMenu = new StationEditMenu(
-                    this.helper,
-                    this.stations,
-                    this.regions,
-                    this.placement,
-                    this.config,
-                    this.station,
-                    this.returnToPreviousMenu
-                );
+                this.Reopen();
             },
             this.helper.Translation.Get("edit.rename-prompt"),
             this.station.Name
@@ -366,18 +365,36 @@ public sealed class StationEditMenu : IClickableMenu
                 if (!string.IsNullOrWhiteSpace(category))
                     this.stations.SetManualCategory(this.station.Id, category.Trim());
 
-                Game1.activeClickableMenu = new StationEditMenu(
-                    this.helper,
-                    this.stations,
-                    this.regions,
-                    this.placement,
-                    this.config,
-                    this.station,
-                    this.returnToPreviousMenu
-                );
+                this.Reopen();
             },
             this.helper.Translation.Get("edit.category-prompt"),
             this.regions.GetStationCategory(this.station)
+        );
+    }
+
+    private void OpenVisualStyleMenu()
+    {
+        Game1.playSound("smallSelect");
+        Game1.activeClickableMenu = new StationVisualStyleMenu(
+            this.helper,
+            this.stations,
+            this.regions,
+            this.config,
+            this.station,
+            this.Reopen
+        );
+    }
+
+    private void Reopen()
+    {
+        Game1.activeClickableMenu = new StationEditMenu(
+            this.helper,
+            this.stations,
+            this.regions,
+            this.placement,
+            this.config,
+            this.station,
+            this.returnToPreviousMenu
         );
     }
 
