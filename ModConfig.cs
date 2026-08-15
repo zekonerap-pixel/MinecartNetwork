@@ -6,9 +6,11 @@ public sealed class ModConfig
     public const string MenuStyleBasic = "Basic";
 
     // Station artwork is split into three independent choices (option B).
-    // All generated variants keep the exact source atlas dimensions.
+    // Every visual set preserves the exact source atlas dimensions.
     public const string StationVisualLegacyCurrent = "LegacyCurrent";
+    public const string StationVisualIndustrial = "Industrial";
     public const string StationVisualRustic = "Rustic";
+    public const string StationVisualMiner = "Miner";
     public const string StationVisualCopper = "Copper";
     public const string StationVisualDarkIron = "DarkIron";
     public const string StationVisualMoss = "Moss";
@@ -17,7 +19,9 @@ public sealed class ModConfig
     public static readonly string[] StationVisualStyles =
     {
         StationVisualLegacyCurrent,
+        StationVisualIndustrial,
         StationVisualRustic,
+        StationVisualMiner,
         StationVisualCopper,
         StationVisualDarkIron,
         StationVisualMoss,
