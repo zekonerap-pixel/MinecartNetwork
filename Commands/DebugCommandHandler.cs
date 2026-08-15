@@ -1,5 +1,4 @@
 using MinecartNetwork.Models;
-using MinecartNetwork.Rendering;
 using MinecartNetwork.Services;
 using StardewModdingAPI;
 using StardewValley;
@@ -61,9 +60,6 @@ public sealed class DebugCommandHandler
                 break;
             case "remove":
                 this.Remove(args.Skip(1).ToArray());
-                break;
-            case "visualscan":
-                new VanillaStationVisualScanner(this.monitor).Scan();
                 break;
             default:
                 this.PrintHelp();
@@ -237,6 +233,5 @@ public sealed class DebugCommandHandler
         this.monitor.Log("  mn goto <name-or-id>           - warp to a station", LogLevel.Info);
         this.monitor.Log("  mn goto <category> <name>      - warp using category + name", LogLevel.Info);
         this.monitor.Log("  mn remove <name-or-id>         - delete a station and restore reversible cleared objects", LogLevel.Info);
-        this.monitor.Log("  mn visualscan                  - inspect the real vanilla tiles around the current minecart stop", LogLevel.Info);
     }
 }
