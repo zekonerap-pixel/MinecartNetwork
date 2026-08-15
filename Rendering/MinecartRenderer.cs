@@ -12,8 +12,8 @@ public sealed class MinecartRenderer
 {
     // World-space sizes are explicit and independent from source atlas resolution.
     // The minecart is intentionally drawn slightly larger than one tile for visual presence.
-    private const int MinecartWorldSize = 72;
-    private const int EntranceWorldSize = 96;
+    private const int MinecartWorldSize = 128;
+    private const int EntranceWorldSize = 192;
 
     private readonly IModHelper helper;
     private readonly StationManager stations;
