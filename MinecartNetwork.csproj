@@ -14,4 +14,12 @@
   <ItemGroup>
     <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.4.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ensure nested station sprite sets are present in the compiled/deployed mod. -->
+    <None Update="assets/**/*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
 </Project>
