@@ -5,11 +5,20 @@ public sealed class ModConfig
     public const string MenuStyleStardew = "Stardew";
     public const string MenuStyleBasic = "Basic";
 
+    // Station artwork is intentionally split into three independent choices (option B).
+    // For now these stay on LegacyCurrent until real vanilla source tiles are identified;
+    // no fake/approximated vanilla options are exposed.
+    public const string StationVisualLegacyCurrent = "LegacyCurrent";
+
     public bool EnableDebugCommands { get; set; } = true;
     public bool PlayWarpSound { get; set; } = true;
     public bool AutoCategorizeNewStations { get; set; } = true;
     public string DefaultCategory { get; set; } = "Other";
     public string MenuStyle { get; set; } = MenuStyleStardew;
+
+    public string MinecartVisualStyle { get; set; } = StationVisualLegacyCurrent;
+    public string EntranceVisualStyle { get; set; } = StationVisualLegacyCurrent;
+    public string TrackVisualStyle { get; set; } = StationVisualLegacyCurrent;
 
     public static string NormalizeMenuStyle(string? value)
     {
@@ -20,4 +29,7 @@ public sealed class ModConfig
 
     public static bool IsBasicMenuStyle(string? value)
         => NormalizeMenuStyle(value) == MenuStyleBasic;
+
+    public static string NormalizeStationVisualStyle(string? value)
+        => StationVisualLegacyCurrent;
 }
