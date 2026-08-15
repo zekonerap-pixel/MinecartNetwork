@@ -2,7 +2,7 @@ using StardewModdingAPI;
 
 namespace MinecartNetwork.Integrations;
 
-internal interface IGenericModConfigMenuApi
+public interface IGenericModConfigMenuApi
 {
     void Register(
         IManifest mod,
