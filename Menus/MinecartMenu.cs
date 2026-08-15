@@ -14,15 +14,22 @@ public sealed class MinecartMenu : IClickableMenu
     private const int PreferredMenuWidth = 760;
     private const int PreferredMenuHeight = 620;
     private const int ViewportMargin = 48;
-    private const int HeaderHeight = 48;
-    private const int StationHeight = 44;
-    private const int RowGap = 6;
+    private const int HeaderHeight = 56;
+    private const int StationHeight = 52;
+    private const int RowGap = 7;
     private const int ScrollStep = 96;
     private const int ScrollBarWidth = 12;
     private const int ScrollBarMinThumbHeight = 30;
 
+    // Same local text treatment used by AutomateChestFilters. These values affect only this menu.
+    private const float TitleScale = 1f;
+    private const float OriginScale = 0.94f;
+    private const float CategoryScale = 0.94f;
+    private const float DestinationScale = 1f;
+    private const float EditButtonScale = 0.90f;
+    private const float FooterScale = 0.86f;
+
     private static readonly Rectangle MenuBoxSource = new(0, 256, 60, 60);
-    private static readonly Color TextColor = new(86, 22, 12);
     private static readonly Color SubtleTextColor = new(120, 78, 48);
     private static readonly Color CategoryFill = new(255, 229, 165);
     private static readonly Color CategoryHoverFill = new(255, 214, 125);
@@ -31,6 +38,9 @@ public sealed class MinecartMenu : IClickableMenu
     private static readonly Color AccentColor = new(170, 103, 53);
     private static readonly Color ScrollTrackColor = new(117, 73, 45);
     private static readonly Color ScrollThumbColor = new(224, 168, 83);
+
+    private static SpriteFont MenuFont => Game1.smallFont;
+    private static SpriteFont MenuTitleFont => Game1.dialogueFont;
 
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
@@ -130,35 +140,28 @@ public sealed class MinecartMenu : IClickableMenu
             case Buttons.B:
                 Game1.exitActiveMenu();
                 return;
-
             case Buttons.DPadUp:
             case Buttons.LeftThumbstickUp:
                 this.MoveSelection(-1);
                 return;
-
             case Buttons.DPadDown:
             case Buttons.LeftThumbstickDown:
                 this.MoveSelection(1);
                 return;
-
             case Buttons.LeftShoulder:
                 this.MoveSelection(-5);
                 return;
-
             case Buttons.RightShoulder:
                 this.MoveSelection(5);
                 return;
-
             case Buttons.DPadLeft:
             case Buttons.LeftThumbstickLeft:
                 this.SetSelectedCategoryCollapsed(true);
                 return;
-
             case Buttons.DPadRight:
             case Buttons.LeftThumbstickRight:
                 this.SetSelectedCategoryCollapsed(false);
                 return;
-
             case Buttons.A:
                 this.ActivateSelected();
                 return;
@@ -188,51 +191,49 @@ public sealed class MinecartMenu : IClickableMenu
         Rectangle panel = new(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height);
         this.DrawVanillaBox(b, panel, Color.White, drawShadow: true);
 
-        string title = this.FitText(
-            Game1.dialogueFont,
-            this.helper.Translation.Get("menu.title"),
-            this.width - 108
+        Rectangle titleBounds = new(
+            this.xPositionOnScreen + 36,
+            this.yPositionOnScreen + 16,
+            this.width - 108,
+            52
         );
-        this.DrawTextWithShadow(
+        this.DrawLeftCenteredScaledText(
             b,
-            Game1.dialogueFont,
-            title,
-            new Vector2(this.xPositionOnScreen + 36, this.yPositionOnScreen + 24),
-            TextColor
+            titleBounds,
+            this.helper.Translation.Get("menu.title"),
+            MenuTitleFont,
+            TitleScale,
+            0.86f,
+            Game1.textColor,
+            drawShadow: true
         );
 
         Rectangle originPanel = new(
             this.xPositionOnScreen + 32,
             this.yPositionOnScreen + 76,
             this.width - 64,
-            42
+            48
         );
         this.DrawVanillaBox(b, originPanel, new Color(255, 245, 210), drawShadow: false);
-
-        string originText = this.helper.Translation.Get("menu.origin", new { name = this.originName });
-        originText = this.FitText(Game1.smallFont, originText, originPanel.Width - 24);
-        b.DrawString(
-            Game1.smallFont,
-            originText,
-            new Vector2(originPanel.X + 12, originPanel.Y + 10),
+        this.DrawLeftCenteredScaledText(
+            b,
+            new Rectangle(originPanel.X + 12, originPanel.Y, originPanel.Width - 24, originPanel.Height),
+            this.helper.Translation.Get("menu.origin", new { name = this.originName }),
+            MenuFont,
+            OriginScale,
+            0.78f,
             SubtleTextColor
         );
 
         if (this.visibleRows.Count == 0)
         {
-            string empty = this.FitText(
-                Game1.smallFont,
+            this.DrawCenteredScaledText(
+                b,
+                new Rectangle(this.ContentBounds.X + 12, this.ContentTop + 28, this.ContentBounds.Width - 24, 64),
                 this.helper.Translation.Get("menu.empty"),
-                this.ContentBounds.Width - 24
-            );
-            Vector2 size = Game1.smallFont.MeasureString(empty);
-            b.DrawString(
-                Game1.smallFont,
-                empty,
-                new Vector2(
-                    this.xPositionOnScreen + (this.width - size.X) / 2f,
-                    this.ContentTop + 56
-                ),
+                MenuFont,
+                0.94f,
+                0.78f,
                 SubtleTextColor
             );
         }
@@ -278,8 +279,8 @@ public sealed class MinecartMenu : IClickableMenu
         return Math.Min(PreferredMenuHeight, available);
     }
 
-    private int ContentTop => this.yPositionOnScreen + 130;
-    private int ContentBottom => this.yPositionOnScreen + this.height - 82;
+    private int ContentTop => this.yPositionOnScreen + 136;
+    private int ContentBottom => this.yPositionOnScreen + this.height - 86;
     private int ContentHeight => Math.Max(1, this.ContentBottom - this.ContentTop);
     private Rectangle ContentBounds => new(
         this.xPositionOnScreen + 32,
@@ -306,9 +307,9 @@ public sealed class MinecartMenu : IClickableMenu
             int buttonWidth = Math.Min(270, availableWidth);
             return new Rectangle(
                 this.xPositionOnScreen + 34,
-                this.yPositionOnScreen + this.height - 60,
+                this.yPositionOnScreen + this.height - 66,
                 buttonWidth,
-                42
+                48
             );
         }
     }
@@ -404,7 +405,6 @@ public sealed class MinecartMenu : IClickableMenu
                 continue;
 
             string category = destination.Category;
-
             if (destination.IsCustomStation)
             {
                 MinecartStation? station = this.stations.Stations.FirstOrDefault(candidate =>
@@ -413,12 +413,7 @@ public sealed class MinecartMenu : IClickableMenu
                     category = this.regions.GetStationCategory(station);
             }
 
-            result.Add(new MenuDestination(
-                destination.Name,
-                category,
-                null,
-                destination
-            ));
+            result.Add(new MenuDestination(destination.Name, category, null, destination));
         }
 
         return result;
@@ -445,7 +440,6 @@ public sealed class MinecartMenu : IClickableMenu
 
         bool success;
         string? error;
-
         if (destination.CustomStation is not null)
             success = this.teleport.TryWarp(destination.CustomStation, out error);
         else if (destination.VanillaDestination is not null)
@@ -572,21 +566,14 @@ public sealed class MinecartMenu : IClickableMenu
     }
 
     private bool IsRowFullyVisible(MenuRow row)
-    {
-        return row.Bounds.Top >= this.ContentTop && row.Bounds.Bottom <= this.ContentBottom;
-    }
+        => row.Bounds.Top >= this.ContentTop && row.Bounds.Bottom <= this.ContentBottom;
 
     private void SetScrollFromPointer(int pointerY)
     {
         Rectangle track = this.ScrollBarTrack;
         int thumbHeight = this.GetScrollThumbHeight();
         int travel = Math.Max(1, track.Height - thumbHeight);
-        float position = Math.Clamp(
-            (pointerY - track.Y - thumbHeight / 2f) / travel,
-            0f,
-            1f
-        );
-
+        float position = Math.Clamp((pointerY - track.Y - thumbHeight / 2f) / travel, 0f, 1f);
         this.scrollOffset = (int)Math.Round(this.maxScroll * position);
         this.BuildRows();
         Game1.playSound("shiny4");
@@ -633,23 +620,14 @@ public sealed class MinecartMenu : IClickableMenu
         if (availableWidth < 80)
             return;
 
-        string scroll = this.FitText(
-            Game1.smallFont,
+        this.DrawRightCenteredScaledText(
+            b,
+            new Rectangle(left, this.yPositionOnScreen + this.height - 62, availableWidth, 44),
             this.helper.Translation.Get("menu.scroll"),
-            availableWidth,
-            0.7f
-        );
-        Vector2 size = Game1.smallFont.MeasureString(scroll) * 0.7f;
-        b.DrawString(
-            Game1.smallFont,
-            scroll,
-            new Vector2(right - size.X, this.yPositionOnScreen + this.height - 46),
-            SubtleTextColor,
-            0f,
-            Vector2.Zero,
-            0.7f,
-            SpriteEffects.None,
-            0f
+            MenuFont,
+            FooterScale,
+            0.68f,
+            SubtleTextColor
         );
     }
 
@@ -667,19 +645,14 @@ public sealed class MinecartMenu : IClickableMenu
         );
 
         string marker = collapsed ? ">" : "v";
-        string label = this.FitText(
-            Game1.smallFont,
-            $"{marker}  {row.Category}",
-            row.Bounds.Width - 32
-        );
-
-        this.DrawTextWithShadow(
+        this.DrawLeftCenteredScaledText(
             b,
-            Game1.smallFont,
-            label,
-            new Vector2(row.Bounds.X + 16, row.Bounds.Y + 11),
-            TextColor,
-            shadowAlpha: highlighted ? 0.28f : 0.18f
+            new Rectangle(row.Bounds.X + 16, row.Bounds.Y, row.Bounds.Width - 32, row.Bounds.Height),
+            $"{marker}  {row.Category}",
+            MenuFont,
+            CategoryScale,
+            0.78f,
+            Game1.textColor
         );
     }
 
@@ -691,17 +664,14 @@ public sealed class MinecartMenu : IClickableMenu
         this.Fill(b, row.Bounds, highlighted ? DestinationHoverFill : DestinationFill);
         this.Outline(b, row.Bounds, highlighted ? AccentColor : new Color(205, 160, 105), highlighted ? 2 : 1);
 
-        string name = this.FitText(
-            Game1.smallFont,
+        this.DrawLeftCenteredScaledText(
+            b,
+            new Rectangle(row.Bounds.X + 18, row.Bounds.Y, row.Bounds.Width - 36, row.Bounds.Height),
             row.Destination!.Name,
-            row.Bounds.Width - 36
-        );
-
-        b.DrawString(
-            Game1.smallFont,
-            name,
-            new Vector2(row.Bounds.X + 18, row.Bounds.Y + 9),
-            TextColor
+            MenuFont,
+            DestinationScale,
+            0.80f,
+            Game1.textColor
         );
     }
 
@@ -717,20 +687,14 @@ public sealed class MinecartMenu : IClickableMenu
             drawShadow: highlighted
         );
 
-        string text = this.FitText(
-            Game1.smallFont,
-            this.helper.Translation.Get("menu.edit-station"),
-            bounds.Width - 28,
-            0.8f
-        );
-        Vector2 size = Game1.smallFont.MeasureString(text) * 0.8f;
-        this.DrawTextWithShadow(
+        this.DrawLeftCenteredScaledText(
             b,
-            Game1.smallFont,
-            text,
-            new Vector2(bounds.X + 14, bounds.Y + (bounds.Height - size.Y) / 2f),
-            TextColor,
-            0.8f
+            new Rectangle(bounds.X + 14, bounds.Y, bounds.Width - 28, bounds.Height),
+            this.helper.Translation.Get("menu.edit-station"),
+            MenuFont,
+            EditButtonScale,
+            0.72f,
+            Game1.textColor
         );
     }
 
@@ -750,43 +714,98 @@ public sealed class MinecartMenu : IClickableMenu
         );
     }
 
-    private void DrawTextWithShadow(
+    private void DrawLeftCenteredScaledText(
         SpriteBatch b,
-        SpriteFont font,
+        Rectangle bounds,
         string text,
-        Vector2 position,
+        SpriteFont font,
+        float preferredScale,
+        float minScale,
         Color color,
-        float scale = 1f,
-        float shadowAlpha = 0.25f)
+        bool drawShadow = false)
     {
-        Vector2 shadowOffset = new(2f, 2f);
-        b.DrawString(
-            font,
-            text,
-            position + shadowOffset,
-            Color.Black * shadowAlpha,
-            0f,
-            Vector2.Zero,
-            scale,
-            SpriteEffects.None,
-            0f
-        );
-        b.DrawString(
-            font,
-            text,
-            position,
-            color,
-            0f,
-            Vector2.Zero,
-            scale,
-            SpriteEffects.None,
-            0f
-        );
+        float scale = FitScale(font, text, bounds.Width, bounds.Height, preferredScale, minScale);
+        string displayText = TruncateScaledText(text, font, bounds.Width, scale);
+        float visualLineHeight = font.LineSpacing * scale;
+        Vector2 position = new(bounds.X, bounds.Y + (bounds.Height - visualLineHeight) / 2f);
+
+        if (drawShadow)
+        {
+            b.DrawString(
+                font,
+                displayText,
+                position + new Vector2(2f, 2f),
+                Color.Black * 0.22f,
+                0f,
+                Vector2.Zero,
+                scale,
+                SpriteEffects.None,
+                0f
+            );
+        }
+
+        b.DrawString(font, displayText, position, color, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
     }
 
-    private string FitText(SpriteFont font, string text, float maxWidth, float scale = 1f)
+    private void DrawCenteredScaledText(
+        SpriteBatch b,
+        Rectangle bounds,
+        string text,
+        SpriteFont font,
+        float preferredScale,
+        float minScale,
+        Color color)
     {
-        if (maxWidth <= 0 || font.MeasureString(text).X * scale <= maxWidth)
+        float scale = FitScale(font, text, bounds.Width, bounds.Height, preferredScale, minScale);
+        string displayText = TruncateScaledText(text, font, bounds.Width, scale);
+        float measuredWidth = font.MeasureString(displayText).X * scale;
+        float visualLineHeight = font.LineSpacing * scale;
+        Vector2 position = new(
+            bounds.X + (bounds.Width - measuredWidth) / 2f,
+            bounds.Y + (bounds.Height - visualLineHeight) / 2f
+        );
+        b.DrawString(font, displayText, position, color, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+    }
+
+    private void DrawRightCenteredScaledText(
+        SpriteBatch b,
+        Rectangle bounds,
+        string text,
+        SpriteFont font,
+        float preferredScale,
+        float minScale,
+        Color color)
+    {
+        float scale = FitScale(font, text, bounds.Width, bounds.Height, preferredScale, minScale);
+        string displayText = TruncateScaledText(text, font, bounds.Width, scale);
+        float measuredWidth = font.MeasureString(displayText).X * scale;
+        float visualLineHeight = font.LineSpacing * scale;
+        Vector2 position = new(
+            bounds.Right - measuredWidth,
+            bounds.Y + (bounds.Height - visualLineHeight) / 2f
+        );
+        b.DrawString(font, displayText, position, color, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+    }
+
+    private static float FitScale(
+        SpriteFont font,
+        string text,
+        float maxWidth,
+        float maxHeight,
+        float preferredScale,
+        float minScale)
+    {
+        float rawWidth = font.MeasureString(text).X;
+        if (rawWidth <= 0f)
+            return preferredScale;
+
+        float widthScale = maxWidth / rawWidth;
+        return Math.Clamp(Math.Min(preferredScale, widthScale), minScale, preferredScale);
+    }
+
+    private static string TruncateScaledText(string text, SpriteFont font, float maxWidth, float scale)
+    {
+        if (font.MeasureString(text).X * scale <= maxWidth)
             return text;
 
         const string suffix = "...";
@@ -809,9 +828,7 @@ public sealed class MinecartMenu : IClickableMenu
     }
 
     private void Fill(SpriteBatch batch, Rectangle rectangle, Color color)
-    {
-        batch.Draw(Game1.staminaRect, rectangle, color);
-    }
+        => batch.Draw(Game1.staminaRect, rectangle, color);
 
     private void Outline(SpriteBatch batch, Rectangle rectangle, Color color, int thickness)
     {
