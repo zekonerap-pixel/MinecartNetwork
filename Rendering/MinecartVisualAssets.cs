@@ -16,7 +16,15 @@ public sealed class MinecartVisualAssets
     // tracks.png contains vertical then horizontal 16x16 frames.
     public const int TrackFrameSize = 16;
 
+    public const int MinecartAtlasWidth = MinecartFrameWidth * 4;
+    public const int MinecartAtlasHeight = MinecartFrameHeight;
+    public const int EntranceAtlasWidth = EntranceFrameWidth * 4;
+    public const int EntranceAtlasHeight = EntranceFrameHeight;
+    public const int TrackAtlasWidth = TrackFrameSize * 2;
+    public const int TrackAtlasHeight = TrackFrameSize;
+
     private readonly IModHelper helper;
+    private readonly IMonitor monitor;
 
     private readonly Dictionary<string, Texture2D> minecartVariants = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Texture2D> trackVariants = new(StringComparer.OrdinalIgnoreCase);
@@ -27,9 +35,10 @@ public sealed class MinecartVisualAssets
     private Texture2D? wallHole;
     private bool loaded;
 
-    public MinecartVisualAssets(IModHelper helper)
+    public MinecartVisualAssets(IModHelper helper, IMonitor monitor)
     {
         this.helper = helper;
+        this.monitor = monitor;
 
         // Keep config.json functional even when Generic Mod Config Menu isn't installed.
         StationVisualSettings.Apply(helper.ReadConfig<ModConfig>());
@@ -74,6 +83,36 @@ public sealed class MinecartVisualAssets
         }
     }
 
+    public static string[] GetAvailableStyles(IModHelper helper)
+    {
+        var styles = new List<string>
+        {
+            ModConfig.StationVisualLegacyCurrent
+        };
+
+        string stylesRoot = Path.Combine(helper.DirectoryPath, "assets", "styles");
+        if (!Directory.Exists(stylesRoot))
+            return styles.ToArray();
+
+        foreach (string directory in Directory
+                     .EnumerateDirectories(stylesRoot)
+                     .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase))
+        {
+            string? style = Path.GetFileName(directory);
+            if (!ModConfig.IsSafeStationVisualStyleName(style))
+                continue;
+
+            bool complete = File.Exists(Path.Combine(directory, "minecart.png"))
+                && File.Exists(Path.Combine(directory, "mine_entrance.png"))
+                && File.Exists(Path.Combine(directory, "tracks.png"));
+
+            if (complete && !styles.Contains(style, StringComparer.OrdinalIgnoreCase))
+                styles.Add(style);
+        }
+
+        return styles.ToArray();
+    }
+
     public Rectangle GetEntranceSourceRect(int direction)
     {
         int frame = NormalizeDirection(direction);
@@ -113,46 +152,92 @@ public sealed class MinecartVisualAssets
         this.loaded = true;
 
         // Original/current artwork.
-        this.minecart = this.TryLoad("assets/minecart.png");
-        this.tracks = this.TryLoad("assets/tracks.png");
-        this.wallHole = this.TryLoad("assets/mine_entrance.png");
+        this.minecart = this.TryLoadValidated(
+            "assets/minecart.png",
+            MinecartAtlasWidth,
+            MinecartAtlasHeight,
+            "current minecart"
+        );
+        this.tracks = this.TryLoadValidated(
+            "assets/tracks.png",
+            TrackAtlasWidth,
+            TrackAtlasHeight,
+            "current tracks"
+        );
+        this.wallHole = this.TryLoadValidated(
+            "assets/mine_entrance.png",
+            EntranceAtlasWidth,
+            EntranceAtlasHeight,
+            "current entrance"
+        );
 
-        // Real PNG variants stored in the repository. They preserve the exact same
-        // atlas dimensions and source rectangles as the original artwork.
-        foreach (string style in ModConfig.StationVisualStyles)
+        string[] availableStyles = GetAvailableStyles(this.helper);
+        foreach (string style in availableStyles)
         {
-            if (style == ModConfig.StationVisualLegacyCurrent)
+            if (style.Equals(ModConfig.StationVisualLegacyCurrent, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             this.TryAddVariant(
                 this.minecartVariants,
                 style,
-                $"assets/styles/{style}/minecart.png"
+                $"assets/styles/{style}/minecart.png",
+                MinecartAtlasWidth,
+                MinecartAtlasHeight
             );
             this.TryAddVariant(
                 this.trackVariants,
                 style,
-                $"assets/styles/{style}/tracks.png"
+                $"assets/styles/{style}/tracks.png",
+                TrackAtlasWidth,
+                TrackAtlasHeight
             );
             this.TryAddVariant(
                 this.entranceVariants,
                 style,
-                $"assets/styles/{style}/mine_entrance.png"
+                $"assets/styles/{style}/mine_entrance.png",
+                EntranceAtlasWidth,
+                EntranceAtlasHeight
             );
         }
+
+        string loadedStyles = string.Join(
+            ", ",
+            availableStyles.Where(style =>
+                style.Equals(ModConfig.StationVisualLegacyCurrent, StringComparison.OrdinalIgnoreCase)
+                || (this.minecartVariants.ContainsKey(style)
+                    && this.trackVariants.ContainsKey(style)
+                    && this.entranceVariants.ContainsKey(style)))
+        );
+
+        this.monitor.Log(
+            $"Station visual styles recognized: {loadedStyles}.",
+            LogLevel.Debug
+        );
     }
 
     private void TryAddVariant(
         IDictionary<string, Texture2D> target,
         string style,
-        string relativePath)
+        string relativePath,
+        int expectedWidth,
+        int expectedHeight)
     {
-        Texture2D? texture = this.TryLoad(relativePath);
+        Texture2D? texture = this.TryLoadValidated(
+            relativePath,
+            expectedWidth,
+            expectedHeight,
+            $"'{style}'"
+        );
+
         if (texture is not null)
             target[style] = texture;
     }
 
-    private Texture2D? TryLoad(string relativePath)
+    private Texture2D? TryLoadValidated(
+        string relativePath,
+        int expectedWidth,
+        int expectedHeight,
+        string label)
     {
         string diskPath = Path.Combine(
             this.helper.DirectoryPath,
@@ -160,14 +245,34 @@ public sealed class MinecartVisualAssets
         );
 
         if (!File.Exists(diskPath))
+        {
+            this.monitor.Log(
+                $"Station visual asset not found for {label}: {relativePath}",
+                LogLevel.Warn
+            );
             return null;
+        }
 
         try
         {
-            return this.helper.ModContent.Load<Texture2D>(relativePath);
+            Texture2D texture = this.helper.ModContent.Load<Texture2D>(relativePath);
+            if (texture.Width != expectedWidth || texture.Height != expectedHeight)
+            {
+                this.monitor.Log(
+                    $"Ignoring station visual asset '{relativePath}': expected {expectedWidth}x{expectedHeight}, got {texture.Width}x{texture.Height}.",
+                    LogLevel.Warn
+                );
+                return null;
+            }
+
+            return texture;
         }
-        catch
+        catch (Exception ex)
         {
+            this.monitor.Log(
+                $"Couldn't load station visual asset '{relativePath}': {ex.Message}",
+                LogLevel.Warn
+            );
             return null;
         }
     }
@@ -181,12 +286,17 @@ public sealed class MinecartVisualAssets
             return null;
 
         string style = ModConfig.NormalizeStationVisualStyle(requestedStyle);
-        if (style == ModConfig.StationVisualLegacyCurrent)
+        if (style.Equals(ModConfig.StationVisualLegacyCurrent, StringComparison.OrdinalIgnoreCase))
             return source;
 
-        return variants.TryGetValue(style, out Texture2D? texture)
-            ? texture
-            : source;
+        if (variants.TryGetValue(style, out Texture2D? texture))
+            return texture;
+
+        this.monitor.Log(
+            $"Station visual style '{style}' isn't available for this asset; using the current sprite instead.",
+            LogLevel.Trace
+        );
+        return source;
     }
 
     private static int NormalizeDirection(int direction)
