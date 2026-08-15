@@ -11,12 +11,15 @@ namespace MinecartNetwork.Menus;
 
 public sealed class MinecartMenu : IClickableMenu
 {
-    private const int MenuWidth = 760;
-    private const int MenuHeight = 620;
+    private const int PreferredMenuWidth = 760;
+    private const int PreferredMenuHeight = 620;
+    private const int ViewportMargin = 48;
     private const int HeaderHeight = 46;
     private const int StationHeight = 42;
     private const int RowGap = 6;
     private const int ScrollStep = 96;
+    private const int ScrollBarWidth = 8;
+    private const int ScrollBarMinThumbHeight = 28;
 
     private readonly IModHelper helper;
     private readonly IMonitor monitor;
@@ -29,6 +32,7 @@ public sealed class MinecartMenu : IClickableMenu
     private readonly string? excludedCustomStationId;
     private readonly string? excludedVanillaDestinationId;
     private readonly HashSet<string> collapsedCategories = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<MenuGroup> destinationGroups = new();
     private readonly List<MenuRow> visibleRows = new();
 
     private int scrollOffset;
@@ -48,10 +52,10 @@ public sealed class MinecartMenu : IClickableMenu
         string? excludedCustomStationId = null,
         string? excludedVanillaDestinationId = null)
         : base(
-            Game1.uiViewport.Width / 2 - MenuWidth / 2,
-            Game1.uiViewport.Height / 2 - MenuHeight / 2,
-            MenuWidth,
-            MenuHeight,
+            (Game1.uiViewport.Width - GetMenuWidth()) / 2,
+            (Game1.uiViewport.Height - GetMenuHeight()) / 2,
+            GetMenuWidth(),
+            GetMenuHeight(),
             showUpperRightCloseButton: true)
     {
         this.helper = helper;
@@ -65,6 +69,8 @@ public sealed class MinecartMenu : IClickableMenu
         this.excludedCustomStationId = excludedCustomStationId;
         this.excludedVanillaDestinationId = excludedVanillaDestinationId;
 
+        this.RefreshDestinations();
+        this.CollapseAllCategories();
         this.BuildRows();
         this.ClampSelection();
     }
@@ -77,18 +83,25 @@ public sealed class MinecartMenu : IClickableMenu
         if (this.upperRightCloseButton?.containsPoint(x, y) == true)
             return;
 
+        if (this.maxScroll > 0 && this.ScrollBarTrack.Contains(x, y))
+        {
+            this.SetScrollFromPointer(y);
+            return;
+        }
+
         if (this.EditButton is Rectangle editButton && editButton.Contains(x, y))
         {
             this.OpenEditor();
             return;
         }
 
-        this.BuildRows();
+        if (!this.ContentBounds.Contains(x, y))
+            return;
 
         for (int i = 0; i < this.visibleRows.Count; i++)
         {
             MenuRow row = this.visibleRows[i];
-            if (!row.Bounds.Contains(x, y))
+            if (!this.IsRowFullyVisible(row) || !row.Bounds.Contains(x, y))
                 continue;
 
             this.selectedIndex = i;
@@ -100,7 +113,6 @@ public sealed class MinecartMenu : IClickableMenu
     public override void receiveGamePadButton(Buttons button)
     {
         this.controllerNavigationActive = true;
-        this.BuildRows();
 
         switch (button)
         {
@@ -154,6 +166,7 @@ public sealed class MinecartMenu : IClickableMenu
 
         this.scrollOffset += direction > 0 ? -ScrollStep : ScrollStep;
         this.scrollOffset = Math.Clamp(this.scrollOffset, 0, this.maxScroll);
+        this.BuildRows();
     }
 
     public override void draw(SpriteBatch b)
@@ -165,7 +178,11 @@ public sealed class MinecartMenu : IClickableMenu
         this.Fill(b, panel, new Color(37, 31, 28) * 0.98f);
         this.Outline(b, panel, new Color(121, 88, 60), 5);
 
-        string title = this.helper.Translation.Get("menu.title");
+        string title = this.FitText(
+            Game1.dialogueFont,
+            this.helper.Translation.Get("menu.title"),
+            this.width - 92
+        );
         b.DrawString(
             Game1.dialogueFont,
             title,
@@ -173,26 +190,38 @@ public sealed class MinecartMenu : IClickableMenu
             Color.Wheat
         );
 
+        Rectangle originPanel = new(
+            this.xPositionOnScreen + 28,
+            this.yPositionOnScreen + 68,
+            this.width - 56,
+            36
+        );
+        this.Fill(b, originPanel, new Color(49, 43, 40));
+        this.Outline(b, originPanel, new Color(75, 66, 59), 1);
+
         string originText = this.helper.Translation.Get("menu.origin", new { name = this.originName });
+        originText = this.FitText(Game1.smallFont, originText, originPanel.Width - 20);
         b.DrawString(
             Game1.smallFont,
             originText,
-            new Vector2(this.xPositionOnScreen + 36, this.yPositionOnScreen + 72),
+            new Vector2(originPanel.X + 10, originPanel.Y + 7),
             Color.LightGray
         );
 
-        this.BuildRows();
-
         if (this.visibleRows.Count == 0)
         {
-            string empty = this.helper.Translation.Get("menu.empty");
+            string empty = this.FitText(
+                Game1.smallFont,
+                this.helper.Translation.Get("menu.empty"),
+                this.ContentBounds.Width - 24
+            );
             Vector2 size = Game1.smallFont.MeasureString(empty);
             b.DrawString(
                 Game1.smallFont,
                 empty,
                 new Vector2(
                     this.xPositionOnScreen + (this.width - size.X) / 2f,
-                    this.yPositionOnScreen + 180
+                    this.ContentTop + 56
                 ),
                 Color.LightGray
             );
@@ -202,7 +231,7 @@ public sealed class MinecartMenu : IClickableMenu
             for (int i = 0; i < this.visibleRows.Count; i++)
             {
                 MenuRow row = this.visibleRows[i];
-                if (row.Bounds.Bottom < this.ContentTop || row.Bounds.Top > this.ContentBottom)
+                if (!this.IsRowFullyVisible(row))
                     continue;
 
                 bool selected = this.controllerNavigationActive && this.selectedIndex == i;
@@ -213,43 +242,66 @@ public sealed class MinecartMenu : IClickableMenu
             }
         }
 
+        if (this.maxScroll > 0)
+            this.DrawScrollBar(b);
+
         if (this.EditButton is Rectangle editButton)
         {
             bool selected = this.controllerNavigationActive && this.selectedIndex == this.visibleRows.Count;
             this.DrawEditButton(b, editButton, selected);
         }
 
-        if (this.maxScroll > 0)
-        {
-            string scroll = this.helper.Translation.Get("menu.scroll");
-            Vector2 size = Game1.smallFont.MeasureString(scroll) * 0.75f;
-            b.DrawString(
-                Game1.smallFont,
-                scroll,
-                new Vector2(
-                    this.xPositionOnScreen + this.width - size.X - 34,
-                    this.yPositionOnScreen + this.height - 31
-                ),
-                Color.Gray,
-                0f,
-                Vector2.Zero,
-                0.75f,
-                SpriteEffects.None,
-                0f
-            );
-        }
-
+        this.DrawScrollHint(b);
         this.upperRightCloseButton?.draw(b);
         this.drawMouse(b);
     }
 
-    private int ContentTop => this.yPositionOnScreen + 116;
-    private int ContentBottom => this.yPositionOnScreen + this.height - 72;
-    private int ContentHeight => this.ContentBottom - this.ContentTop;
+    private static int GetMenuWidth()
+    {
+        int available = Math.Max(1, Game1.uiViewport.Width - ViewportMargin * 2);
+        return Math.Min(PreferredMenuWidth, available);
+    }
 
-    private Rectangle? EditButton => this.GetEditableOrigin() is null
-        ? null
-        : new Rectangle(this.xPositionOnScreen + 34, this.yPositionOnScreen + this.height - 50, 210, 34);
+    private static int GetMenuHeight()
+    {
+        int available = Math.Max(1, Game1.uiViewport.Height - ViewportMargin * 2);
+        return Math.Min(PreferredMenuHeight, available);
+    }
+
+    private int ContentTop => this.yPositionOnScreen + 116;
+    private int ContentBottom => this.yPositionOnScreen + this.height - 74;
+    private int ContentHeight => Math.Max(1, this.ContentBottom - this.ContentTop);
+    private Rectangle ContentBounds => new(
+        this.xPositionOnScreen + 28,
+        this.ContentTop,
+        this.width - 56,
+        this.ContentHeight
+    );
+
+    private Rectangle ScrollBarTrack => new(
+        this.xPositionOnScreen + this.width - 24,
+        this.ContentTop + 4,
+        ScrollBarWidth,
+        Math.Max(1, this.ContentHeight - 8)
+    );
+
+    private Rectangle? EditButton
+    {
+        get
+        {
+            if (this.GetEditableOrigin() is null)
+                return null;
+
+            int availableWidth = Math.Max(1, this.width - 68);
+            int buttonWidth = Math.Min(250, availableWidth);
+            return new Rectangle(
+                this.xPositionOnScreen + 34,
+                this.yPositionOnScreen + this.height - 52,
+                buttonWidth,
+                34
+            );
+        }
+    }
 
     private int SelectableCount => this.visibleRows.Count + (this.EditButton.HasValue ? 1 : 0);
 
@@ -263,23 +315,38 @@ public sealed class MinecartMenu : IClickableMenu
             && station.HasPhysicalMinecart);
     }
 
+    private void RefreshDestinations()
+    {
+        this.destinationGroups.Clear();
+
+        foreach (IGrouping<string, MenuDestination> group in this.GetDestinations()
+                     .OrderBy(destination => destination.Category, StringComparer.CurrentCultureIgnoreCase)
+                     .ThenBy(destination => destination.Name, StringComparer.CurrentCultureIgnoreCase)
+                     .GroupBy(destination => destination.Category, StringComparer.OrdinalIgnoreCase))
+        {
+            this.destinationGroups.Add(new MenuGroup(group.Key, group.ToList()));
+        }
+    }
+
+    private void CollapseAllCategories()
+    {
+        this.collapsedCategories.Clear();
+        foreach (MenuGroup group in this.destinationGroups)
+            this.collapsedCategories.Add(group.Category);
+
+        this.scrollOffset = 0;
+    }
+
     private void BuildRows()
     {
         this.visibleRows.Clear();
 
-        List<MenuDestination> destinations = this.GetDestinations();
-        List<IGrouping<string, MenuDestination>> groups = destinations
-            .OrderBy(destination => destination.Category, StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(destination => destination.Name, StringComparer.CurrentCultureIgnoreCase)
-            .GroupBy(destination => destination.Category, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
         int totalHeight = 0;
-        foreach (IGrouping<string, MenuDestination> group in groups)
+        foreach (MenuGroup group in this.destinationGroups)
         {
             totalHeight += HeaderHeight + RowGap;
-            if (!this.collapsedCategories.Contains(group.Key))
-                totalHeight += group.Count() * (StationHeight + RowGap);
+            if (!this.collapsedCategories.Contains(group.Category))
+                totalHeight += group.Destinations.Count * (StationHeight + RowGap);
         }
 
         this.maxScroll = Math.Max(0, totalHeight - this.ContentHeight);
@@ -287,24 +354,25 @@ public sealed class MinecartMenu : IClickableMenu
 
         int y = this.ContentTop - this.scrollOffset;
         int x = this.xPositionOnScreen + 32;
-        int rowWidth = this.width - 64;
+        int scrollPadding = this.maxScroll > 0 ? 20 : 0;
+        int rowWidth = Math.Max(1, this.width - 64 - scrollPadding);
 
-        foreach (IGrouping<string, MenuDestination> group in groups)
+        foreach (MenuGroup group in this.destinationGroups)
         {
             this.visibleRows.Add(new MenuRow(
                 new Rectangle(x, y, rowWidth, HeaderHeight),
-                group.Key,
+                group.Category,
                 null
             ));
             y += HeaderHeight + RowGap;
 
-            if (this.collapsedCategories.Contains(group.Key))
+            if (this.collapsedCategories.Contains(group.Category))
                 continue;
 
-            foreach (MenuDestination destination in group)
+            foreach (MenuDestination destination in group.Destinations)
             {
                 this.visibleRows.Add(new MenuRow(
-                    new Rectangle(x + 18, y, rowWidth - 18, StationHeight),
+                    new Rectangle(x + 18, y, Math.Max(1, rowWidth - 18), StationHeight),
                     null,
                     destination
                 ));
@@ -391,7 +459,6 @@ public sealed class MinecartMenu : IClickableMenu
 
     private void ActivateSelected()
     {
-        this.BuildRows();
         if (this.selectedIndex < 0)
             return;
 
@@ -417,8 +484,19 @@ public sealed class MinecartMenu : IClickableMenu
             this.stations,
             this.regions,
             this.placement,
-            origin
+            origin,
+            this.ReturnFromEditor
         );
+    }
+
+    private void ReturnFromEditor()
+    {
+        this.RefreshDestinations();
+        this.CollapseAllCategories();
+        this.selectedIndex = 0;
+        this.controllerNavigationActive = false;
+        this.BuildRows();
+        Game1.activeClickableMenu = this;
     }
 
     private void MoveSelection(int delta)
@@ -441,7 +519,6 @@ public sealed class MinecartMenu : IClickableMenu
 
     private void SetSelectedCategoryCollapsed(bool collapsed)
     {
-        this.BuildRows();
         if (this.selectedIndex < 0 || this.selectedIndex >= this.visibleRows.Count)
             return;
 
@@ -463,7 +540,6 @@ public sealed class MinecartMenu : IClickableMenu
 
     private void EnsureSelectedVisible()
     {
-        this.BuildRows();
         if (this.selectedIndex < 0 || this.selectedIndex >= this.visibleRows.Count)
             return;
 
@@ -491,18 +567,105 @@ public sealed class MinecartMenu : IClickableMenu
             this.selectedIndex = count - 1;
     }
 
+    private bool IsRowFullyVisible(MenuRow row)
+    {
+        return row.Bounds.Top >= this.ContentTop && row.Bounds.Bottom <= this.ContentBottom;
+    }
+
+    private void SetScrollFromPointer(int pointerY)
+    {
+        Rectangle track = this.ScrollBarTrack;
+        int thumbHeight = this.GetScrollThumbHeight();
+        int travel = Math.Max(1, track.Height - thumbHeight);
+        float position = Math.Clamp(
+            (pointerY - track.Y - thumbHeight / 2f) / travel,
+            0f,
+            1f
+        );
+
+        this.scrollOffset = (int)Math.Round(this.maxScroll * position);
+        this.BuildRows();
+        Game1.playSound("shiny4");
+    }
+
+    private int GetScrollThumbHeight()
+    {
+        if (this.maxScroll <= 0)
+            return this.ScrollBarTrack.Height;
+
+        float contentRatio = this.ContentHeight / (float)(this.ContentHeight + this.maxScroll);
+        return Math.Clamp(
+            (int)Math.Round(this.ScrollBarTrack.Height * contentRatio),
+            ScrollBarMinThumbHeight,
+            this.ScrollBarTrack.Height
+        );
+    }
+
+    private void DrawScrollBar(SpriteBatch b)
+    {
+        Rectangle track = this.ScrollBarTrack;
+        this.Fill(b, track, new Color(49, 43, 40));
+        this.Outline(b, track, new Color(75, 66, 59), 1);
+
+        int thumbHeight = this.GetScrollThumbHeight();
+        int travel = Math.Max(0, track.Height - thumbHeight);
+        int thumbY = track.Y;
+        if (this.maxScroll > 0 && travel > 0)
+            thumbY += (int)Math.Round(travel * (this.scrollOffset / (double)this.maxScroll));
+
+        Rectangle thumb = new(track.X, thumbY, track.Width, thumbHeight);
+        this.Fill(b, thumb, new Color(145, 108, 76));
+    }
+
+    private void DrawScrollHint(SpriteBatch b)
+    {
+        if (this.maxScroll <= 0)
+            return;
+
+        Rectangle? editButton = this.EditButton;
+        int left = editButton?.Right + 12 ?? this.xPositionOnScreen + 34;
+        int right = this.xPositionOnScreen + this.width - 34;
+        int availableWidth = right - left;
+        if (availableWidth < 80)
+            return;
+
+        string scroll = this.FitText(
+            Game1.smallFont,
+            this.helper.Translation.Get("menu.scroll"),
+            availableWidth,
+            0.7f
+        );
+        Vector2 size = Game1.smallFont.MeasureString(scroll) * 0.7f;
+        b.DrawString(
+            Game1.smallFont,
+            scroll,
+            new Vector2(right - size.X, this.yPositionOnScreen + this.height - 42),
+            Color.Gray,
+            0f,
+            Vector2.Zero,
+            0.7f,
+            SpriteEffects.None,
+            0f
+        );
+    }
+
     private void DrawCategoryRow(SpriteBatch b, MenuRow row, bool selected)
     {
         bool collapsed = this.collapsedCategories.Contains(row.Category!);
         bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
-        this.Fill(b, row.Bounds, highlighted ? new Color(88, 68, 53) : new Color(72, 56, 45));
-        this.Outline(b, row.Bounds, highlighted ? new Color(145, 108, 76) : new Color(115, 86, 63), highlighted ? 3 : 2);
+        this.Fill(b, row.Bounds, highlighted ? new Color(94, 72, 55) : new Color(72, 56, 45));
+        this.Outline(b, row.Bounds, highlighted ? new Color(155, 116, 80) : new Color(115, 86, 63), highlighted ? 3 : 2);
 
-        string marker = collapsed ? "▶" : "▼";
-        b.DrawString(
+        string marker = collapsed ? ">" : "v";
+        string label = this.FitText(
             Game1.smallFont,
             $"{marker}  {row.Category}",
+            row.Bounds.Width - 28
+        );
+        b.DrawString(
+            Game1.smallFont,
+            label,
             new Vector2(row.Bounds.X + 14, row.Bounds.Y + 10),
             Color.Wheat
         );
@@ -513,11 +676,16 @@ public sealed class MinecartMenu : IClickableMenu
         bool hovered = row.Bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
         this.Fill(b, row.Bounds, highlighted ? new Color(66, 57, 51) : new Color(49, 43, 40));
-        this.Outline(b, row.Bounds, highlighted ? new Color(109, 93, 80) : new Color(75, 66, 59), highlighted ? 2 : 1);
+        this.Outline(b, row.Bounds, highlighted ? new Color(122, 102, 84) : new Color(75, 66, 59), highlighted ? 2 : 1);
 
-        b.DrawString(
+        string name = this.FitText(
             Game1.smallFont,
             row.Destination!.Name,
+            row.Bounds.Width - 32
+        );
+        b.DrawString(
+            Game1.smallFont,
+            name,
             new Vector2(row.Bounds.X + 16, row.Bounds.Y + 8),
             highlighted ? Color.Wheat : Color.White
         );
@@ -527,10 +695,15 @@ public sealed class MinecartMenu : IClickableMenu
     {
         bool hovered = bounds.Contains(Game1.getMouseX(), Game1.getMouseY());
         bool highlighted = hovered || selected;
-        this.Fill(b, bounds, highlighted ? new Color(88, 68, 53) : new Color(59, 50, 45));
-        this.Outline(b, bounds, highlighted ? new Color(145, 108, 76) : new Color(115, 86, 63), highlighted ? 3 : 2);
+        this.Fill(b, bounds, highlighted ? new Color(94, 72, 55) : new Color(59, 50, 45));
+        this.Outline(b, bounds, highlighted ? new Color(155, 116, 80) : new Color(115, 86, 63), highlighted ? 3 : 2);
 
-        string text = this.helper.Translation.Get("menu.edit-station");
+        string text = this.FitText(
+            Game1.smallFont,
+            this.helper.Translation.Get("menu.edit-station"),
+            bounds.Width - 24,
+            0.75f
+        );
         Vector2 size = Game1.smallFont.MeasureString(text) * 0.75f;
         b.DrawString(
             Game1.smallFont,
@@ -543,6 +716,30 @@ public sealed class MinecartMenu : IClickableMenu
             SpriteEffects.None,
             0f
         );
+    }
+
+    private string FitText(SpriteFont font, string text, float maxWidth, float scale = 1f)
+    {
+        if (maxWidth <= 0 || font.MeasureString(text).X * scale <= maxWidth)
+            return text;
+
+        const string suffix = "...";
+        if (font.MeasureString(suffix).X * scale > maxWidth)
+            return string.Empty;
+
+        int low = 0;
+        int high = text.Length;
+        while (low < high)
+        {
+            int middle = (low + high + 1) / 2;
+            string candidate = text[..middle].TrimEnd() + suffix;
+            if (font.MeasureString(candidate).X * scale <= maxWidth)
+                low = middle;
+            else
+                high = middle - 1;
+        }
+
+        return text[..low].TrimEnd() + suffix;
     }
 
     private void Fill(SpriteBatch batch, Rectangle rectangle, Color color)
@@ -565,5 +762,6 @@ public sealed class MinecartMenu : IClickableMenu
         VanillaMinecartDestination? VanillaDestination
     );
 
+    private sealed record MenuGroup(string Category, List<MenuDestination> Destinations);
     private sealed record MenuRow(Rectangle Bounds, string? Category, MenuDestination? Destination);
 }
