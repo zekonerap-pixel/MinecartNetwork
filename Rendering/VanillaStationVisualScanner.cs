@@ -1,5 +1,4 @@
 using System.Text;
-using MinecartNetwork.Services;
 using StardewModdingAPI;
 using StardewValley;
 using xTile.Layers;
@@ -8,101 +7,46 @@ using xTile.Tiles;
 namespace MinecartNetwork.Rendering;
 
 /// <summary>
-/// Development helper used to inspect the exact vanilla map tiles around the game's minecart stops.
-/// This lets Minecart Network reuse real vanilla sprites without guessing atlas coordinates.
+/// Development helper used to inspect the exact vanilla map tiles around a minecart stop.
+/// Stand next to a vanilla station and run <c>mn visualscan</c> to print the real tilesheet
+/// names, source tile indexes, layers, and properties used by the game.
 /// </summary>
 public sealed class VanillaStationVisualScanner
 {
-    private const int ScanRadius = 4;
+    private const int ScanRadius = 5;
 
-    private readonly IModHelper helper;
     private readonly IMonitor monitor;
-    private readonly VanillaMinecartService vanillaMinecarts;
 
-    public VanillaStationVisualScanner(
-        IModHelper helper,
-        IMonitor monitor,
-        VanillaMinecartService vanillaMinecarts)
+    public VanillaStationVisualScanner(IMonitor monitor)
     {
-        this.helper = helper;
         this.monitor = monitor;
-        this.vanillaMinecarts = vanillaMinecarts;
     }
 
     public void Scan()
     {
-        if (!Context.IsWorldReady)
+        if (!Context.IsWorldReady || Game1.currentLocation?.Map is null)
         {
             this.monitor.Log("Load a save before scanning vanilla minecart visuals.", LogLevel.Warn);
             return;
         }
 
-        IReadOnlyList<Models.VanillaMinecartDestination> destinations =
-            this.vanillaMinecarts.GetAvailableDestinations(VanillaMinecartService.DefaultNetworkId);
-
-        if (destinations.Count == 0)
-        {
-            this.monitor.Log("No unlocked vanilla minecart destinations were found to scan.", LogLevel.Warn);
-            return;
-        }
-
+        GameLocation location = Game1.currentLocation;
+        Point center = Game1.player.TilePoint;
         var report = new StringBuilder();
+
         report.AppendLine("Minecart Network - vanilla visual scan");
-        report.AppendLine($"Generated: {DateTime.Now:O}");
-        report.AppendLine();
+        report.AppendLine($"Location={location.NameOrUniqueName} PlayerTile={center.X},{center.Y}");
+        report.AppendLine($"Radius={ScanRadius}");
 
-        foreach (Models.VanillaMinecartDestination destination in destinations)
-            this.AppendDestination(report, destination);
-
-        string outputPath = Path.Combine(this.helper.DirectoryPath, "vanilla-visual-scan.txt");
-
-        try
-        {
-            File.WriteAllText(outputPath, report.ToString(), Encoding.UTF8);
-            this.monitor.Log(
-                $"Vanilla minecart visual scan written to '{outputPath}'.",
-                LogLevel.Info
-            );
-        }
-        catch (Exception ex)
-        {
-            this.monitor.Log(
-                $"Couldn't write vanilla visual scan file. Printing the report to the SMAPI log instead. {ex.Message}",
-                LogLevel.Warn
-            );
-            this.monitor.Log(report.ToString(), LogLevel.Info);
-        }
-    }
-
-    private void AppendDestination(
-        StringBuilder report,
-        Models.VanillaMinecartDestination destination)
-    {
-        GameLocation? location = Game1.getLocationFromName(destination.TargetLocation);
-        if (location?.Map is null)
-        {
-            report.AppendLine($"[{destination.Id}] {destination.TargetLocation}: location/map unavailable");
-            report.AppendLine();
-            return;
-        }
-
-        int targetX = destination.TargetTileX;
-        int targetY = destination.TargetTileY;
-
-        report.AppendLine($"[{destination.Id}] {destination.Name}");
-        report.AppendLine(
-            $"Location={destination.TargetLocation} Target={targetX},{targetY} Direction={destination.TargetDirection}"
-        );
-
-        int minX = Math.Max(0, targetX - ScanRadius);
-        int minY = Math.Max(0, targetY - ScanRadius);
+        int minX = Math.Max(0, center.X - ScanRadius);
+        int minY = Math.Max(0, center.Y - ScanRadius);
 
         foreach (Layer layer in location.Map.Layers)
         {
-            int maxX = Math.Min(layer.LayerWidth - 1, targetX + ScanRadius);
-            int maxY = Math.Min(layer.LayerHeight - 1, targetY + ScanRadius);
+            int maxX = Math.Min(layer.LayerWidth - 1, center.X + ScanRadius);
+            int maxY = Math.Min(layer.LayerHeight - 1, center.Y + ScanRadius);
 
-            report.AppendLine($"  Layer: {layer.Id}");
+            report.AppendLine($"Layer={layer.Id}");
 
             for (int y = minY; y <= maxY; y++)
             {
@@ -121,11 +65,11 @@ public sealed class VanillaStationVisualScanner
 
                     string imageSource = tile.TileSheet?.ImageSource ?? "?";
                     string sheetId = tile.TileSheet?.Id ?? "?";
-                    int relativeX = x - targetX;
-                    int relativeY = y - targetY;
+                    int relativeX = x - center.X;
+                    int relativeY = y - center.Y;
 
                     report.Append(
-                        $"    ({relativeX,+2},{relativeY,+2}) map={x},{y} sheet={sheetId} image={imageSource} index={tile.TileIndex}"
+                        $"  rel=({relativeX,+2},{relativeY,+2}) map={x},{y} sheet={sheetId} image={imageSource} index={tile.TileIndex}"
                     );
 
                     if (!string.IsNullOrWhiteSpace(properties))
@@ -136,6 +80,10 @@ public sealed class VanillaStationVisualScanner
             }
         }
 
-        report.AppendLine();
+        this.monitor.Log(report.ToString(), LogLevel.Info);
+        this.monitor.Log(
+            "Vanilla visual scan complete. Upload/share the SMAPI log so the cart, entrance, and rail tiles can be mapped exactly.",
+            LogLevel.Info
+        );
     }
 }
