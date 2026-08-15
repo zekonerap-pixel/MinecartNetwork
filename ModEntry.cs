@@ -3,6 +3,7 @@ using HarmonyLib;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MinecartNetwork.Commands;
+using MinecartNetwork.Integrations;
 using MinecartNetwork.Menus;
 using MinecartNetwork.Patches;
 using MinecartNetwork.Rendering;
@@ -31,6 +32,8 @@ public sealed class ModEntry : Mod
     public override void Entry(IModHelper helper)
     {
         this.Config = helper.ReadConfig<ModConfig>();
+        this.Config.MenuStyle = ModConfig.NormalizeMenuStyle(this.Config.MenuStyle);
+
         this.LocationRegionService = new LocationRegionService(helper);
         this.StationEnvironmentService = new StationEnvironmentService(this.Monitor);
         this.StationManager = new StationManager(
@@ -58,7 +61,8 @@ public sealed class ModEntry : Mod
             this.LocationRegionService,
             this.VanillaMinecartService,
             this.TeleportService,
-            this.PlacementManager
+            this.PlacementManager,
+            this.Config
         );
         this.MinecartRenderer = new MinecartRenderer(helper, this.StationManager, this.PlacementManager);
         this.DebugCommands = new DebugCommandHandler(
@@ -72,6 +76,7 @@ public sealed class ModEntry : Mod
 
         this.ApplyHarmonyPatches();
 
+        helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
@@ -255,10 +260,32 @@ public sealed class ModEntry : Mod
             this.VanillaMinecartService,
             this.TeleportService,
             this.PlacementManager,
+            this.Config,
             originName,
             excludedVanillaDestinationId: excludeDestinationId
         );
         return true;
+    }
+
+    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
+    {
+        GenericModConfigMenuIntegration.Register(
+            this.Helper,
+            this.ModManifest,
+            getConfig: () => this.Config,
+            reset: this.ResetConfig,
+            save: () => this.Helper.WriteConfig(this.Config)
+        );
+    }
+
+    private void ResetConfig()
+    {
+        ModConfig defaults = new();
+        this.Config.EnableDebugCommands = defaults.EnableDebugCommands;
+        this.Config.PlayWarpSound = defaults.PlayWarpSound;
+        this.Config.AutoCategorizeNewStations = defaults.AutoCategorizeNewStations;
+        this.Config.DefaultCategory = defaults.DefaultCategory;
+        this.Config.MenuStyle = defaults.MenuStyle;
     }
 
     private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
