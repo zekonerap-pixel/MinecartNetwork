@@ -28,6 +28,16 @@ public sealed class MinecartStation
     public bool IsEnabled { get; set; } = true;
     public long CreatedByPlayerId { get; set; }
 
+    // Visual mode:
+    // Default   -> use the three global GMCM styles.
+    // Automatic -> choose a complete visual set from the station's region.
+    // Custom    -> use the three component styles stored below.
+    // This default keeps old saves fully compatible.
+    public string VisualStyleMode { get; set; } = "Default";
+    public string? MinecartVisualStyle { get; set; }
+    public string? EntranceVisualStyle { get; set; }
+    public string? TrackVisualStyle { get; set; }
+
     // Simple world clutter removed by this station and safe to reconstruct later.
     public List<RemovedWorldObject> ClearedObjects { get; set; } = new();
 
